@@ -1,0 +1,42 @@
+{
+  "name": "terraform-code-reviewer",
+  "type": "skill",
+  "version": "1.0.1",
+  "displayName": "Terraform Code Reviewer",
+  "description": "Reviews Terraform code for quality, standards compliance, security, and best practices per HashiCorp style guide. Covers meta-arguments, provider version pinning, linting (terraform fmt, TFLint), module structure, naming conventions, and security hardening across AWS, Azure, GCP, Kubernetes, Vault, PostgreSQL, Dynatrace, Cribl, and Cloudflare providers. Optionally validates McKinsey Pattern Catalog standards (TFSFR, TFSNFR, TFCNFR) when reviewing FIRM-TF-MODULES.",
+  "tags": [
+    "terraform",
+    "code-review",
+    "linting",
+    "security",
+    "hashicorp",
+    "iac",
+    "best-practices",
+    "meta-arguments",
+    "version-pinning",
+    "vault",
+    "postgresql",
+    "pattern-catalog",
+    "dev-standards",
+    "module-development",
+    "compliance"
+  ],
+  "supportedAgents": [
+    "cursor",
+    "vscode",
+    "claude",
+    "copilot",
+    "windsurf"
+  ],
+  "personas": [
+    "delivery-operations"
+  ],
+  "author": "Cloud Foundation Spoc",
+  "pointOfContact": {
+    "url": "slack://channel?team=E8RLKB40H&id=C02FX2QRGNP",
+    "label": "#cloud-foundation-spoc"
+  },
+  "excludeFromInstall": [
+    "README.md"
+  ]
+}

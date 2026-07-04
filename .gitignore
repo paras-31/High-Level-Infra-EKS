@@ -1,0 +1,27 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+plan.json
+plan.txt
+drift.txt
+
+# Variable files with real values (commit only *.example)
+*.tfvars
+!*.tfvars.example
+
+# Lock file: DO commit .terraform.lock.hcl (pinned provider hashes)
+!.terraform.lock.hcl
+
+# Local overrides & credentials
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.pem
