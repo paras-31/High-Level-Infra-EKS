@@ -1,0 +1,59 @@
+name: Terraform Apply
+
+# Applies infra changes. dev auto-applies on merge to main; staging/prod require
+# manual dispatch and a protected GitHub Environment approval. Uses an OIDC role
+# with apply permissions (separate, more-privileged role than plan).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "environments/dev/**"
+      - "modules/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to apply"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.9.5"
+  AWS_REGION: "us-east-1"
+
+concurrency:
+  group: apply-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false   # never cancel a running apply
+
+jobs:
+  apply:
+    name: apply (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    # GitHub Environment provides the approval gate + scoped secrets.
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    defaults:
+      run:
+        working-directory: environments/${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, apply role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve
