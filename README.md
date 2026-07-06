@@ -4,7 +4,7 @@ Production-grade **Amazon EKS** platform on AWS, built **entirely from native
 `aws_*` Terraform resources** — no community/public modules. You own every
 resource, so cluster upgrades and attribute changes are always in your hands.
 
-Region: **us-east-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
+Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
 · Governance: **CloudTrail + GuardDuty + Security Hub + AWS Config**.
 
 ---
@@ -38,7 +38,7 @@ Every folder has its own `README.md` explaining what it does and how to use it.
 ## Architecture at a glance
 
 ```
-                 ┌──────────────────── AWS Account (us-east-1) ────────────────────┐
+                 ┌──────────────────── AWS Account (ap-south-1) ────────────────────┐
                  │                                                                  │
    GitHub ──OIDC─┼─► IAM roles (plan / apply)                                       │
    Actions       │                                                                  │
@@ -95,7 +95,7 @@ terraform init
 terraform apply
 
 # 4. Connect kubectl
-aws eks update-kubeconfig --region us-east-1 --name eks-dev-eks
+aws eks update-kubeconfig --region ap-south-1 --name eks-dev-eks
 
 # 5. Install controllers via your Helm/CD flow using the output role ARNs
 #    (load_balancer_controller_role_arn, external_dns_role_arn,

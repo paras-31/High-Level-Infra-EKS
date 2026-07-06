@@ -18,7 +18,7 @@ cd environments/dev
 cp terraform.tfvars.example terraform.tfvars   # set your egress CIDR + admin role
 terraform init
 terraform apply
-aws eks update-kubeconfig --region us-east-1 --name eks-dev-eks
+aws eks update-kubeconfig --region ap-south-1 --name eks-dev-eks
 ```
 
 > Public endpoint access is a dev convenience. Lock it to your office/VPN CIDR —

@@ -50,7 +50,7 @@ precondition {
 }
 
 # try — safe access with fallback
-locals { region = try(var.config.region, "us-east-1") }
+locals { region = try(var.config.region, "ap-south-1") }
 
 # contains — allowlist
 validation {
@@ -84,7 +84,7 @@ validation {
 |------|---------|---------|
 | AWS account ID | `^[0-9]{12}$` | `123456789012` |
 | AWS ARN | `^arn:aws[a-zA-Z-]*:[a-z0-9-]+:[a-z0-9-]*:[0-9]{12}:.*$` | `arn:aws:s3:::bucket` |
-| AWS region | `^[a-z]{2}-(north|south|east|west|central|northeast|southeast)-[0-9]$` | `us-east-1` |
+| AWS region | `^[a-z]{2}-(north|south|east|west|central|northeast|southeast)-[0-9]$` | `ap-south-1` |
 | Azure resource group | `^[a-zA-Z0-9._-]{1,90}$` | `my-rg-prod` |
 | Azure subscription ID | `^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$` | UUID |
 | GCP project ID | `^[a-z][a-z0-9-]{4,28}[a-z0-9]$` | `my-project-123` |

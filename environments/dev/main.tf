@@ -30,7 +30,7 @@ module "platform" {
 
   # --- Networking (cost: single shared NAT) -------------------------------- #
   vpc_cidr             = "10.10.0.0/16"
-  azs                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  azs                  = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
   private_subnet_cidrs = ["10.10.0.0/20", "10.10.16.0/20", "10.10.32.0/20"]
   public_subnet_cidrs  = ["10.10.48.0/24", "10.10.49.0/24", "10.10.50.0/24"]
   intra_subnet_cidrs   = ["10.10.60.0/24", "10.10.61.0/24", "10.10.62.0/24"]

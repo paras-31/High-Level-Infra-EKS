@@ -202,7 +202,7 @@ resource "aws_instance" "web" {
 ## provider (meta-argument)
 
 ```hcl
-provider "aws" { region = "us-east-1" }              # default — no alias
+provider "aws" { region = "ap-south-1" }              # default — no alias
 provider "aws" { alias = "west"; region = "us-west-2" } # alias first
 
 resource "aws_instance" "west" {

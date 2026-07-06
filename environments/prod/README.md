@@ -8,7 +8,7 @@ plus the account-level [`security-baseline`](../../modules/security-baseline).
 | Aspect | prod value |
 |--------|-----------|
 | VPC CIDR | `10.30.0.0/16` |
-| AZs | 3 (`us-east-1a/b/c`) |
+| AZs | 3 (`ap-south-1a/b/c`) |
 | NAT | **one per AZ** (HA) |
 | API endpoint | **private only** |
 | Node groups | `system` (tainted, 3–6) + `apps` (2–10); app scale via Karpenter |
@@ -30,7 +30,7 @@ terraform plan  -out=prod.plan
 terraform apply prod.plan
 
 # then point kubectl at it:
-aws eks update-kubeconfig --region us-east-1 --name eks-prod-eks
+aws eks update-kubeconfig --region ap-south-1 --name eks-prod-eks
 ```
 
 ## After apply — install controllers (your Helm/CD flow)

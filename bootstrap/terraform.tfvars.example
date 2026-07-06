@@ -1,4 +1,4 @@
-aws_region        = "us-east-1"
+aws_region        = "ap-south-1"
 state_bucket_name = "acme-eks-tfstate-123456789012" # must be globally unique
 lock_table_name   = "terraform-state-lock"
 

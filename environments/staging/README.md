@@ -19,7 +19,7 @@ validate changes — cluster upgrades, add-on bumps, app releases — before pro
 cd environments/staging
 cp terraform.tfvars.example terraform.tfvars
 terraform init && terraform apply
-aws eks update-kubeconfig --region us-east-1 --name eks-staging-eks
+aws eks update-kubeconfig --region ap-south-1 --name eks-staging-eks
 ```
 
 Private endpoint → run from a network-reachable host (VPN / SSM bastion / self-hosted runner).

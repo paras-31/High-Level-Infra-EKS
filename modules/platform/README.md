@@ -32,10 +32,10 @@ module "platform" {
 
   name_prefix = "eks-prod"
   environment = "prod"
-  aws_region  = "us-east-1"
+  aws_region  = "ap-south-1"
 
   vpc_cidr             = "10.30.0.0/16"
-  azs                  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  azs                  = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
   private_subnet_cidrs = ["10.30.0.0/20", "10.30.16.0/20", "10.30.32.0/20"]
   public_subnet_cidrs  = ["10.30.48.0/24", "10.30.49.0/24", "10.30.50.0/24"]
   intra_subnet_cidrs   = ["10.30.60.0/24", "10.30.61.0/24", "10.30.62.0/24"]

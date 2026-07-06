@@ -35,7 +35,7 @@ permissions:
 
 env:
   TF_VERSION: "1.9.5"
-  AWS_REGION: "us-east-1"
+  AWS_REGION: "ap-south-1"
 
 concurrency:
   group: destroy-${{ github.event.inputs.environment }}
