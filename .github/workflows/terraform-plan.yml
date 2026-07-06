@@ -11,6 +11,13 @@ on:
       - "modules/**"
       - "policies/**"
       - ".github/workflows/terraform-*.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to plan"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
 
 permissions:
   id-token: write      # OIDC federation to AWS (no static keys)
