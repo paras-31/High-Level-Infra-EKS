@@ -1,6 +1,6 @@
 name: Terraform Destroy
 
-# ⚠️ DESTRUCTIVE. Tears down everything Terraform created in an environment.
+# DESTRUCTIVE. Tears down everything Terraform created in an environment.
 # Safeguards:
 #   * manual dispatch only (never runs automatically)
 #   * you must type the exact confirmation phrase "destroy <environment>"
