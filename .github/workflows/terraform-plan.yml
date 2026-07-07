@@ -33,8 +33,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  bootstrap:
+    name: bootstrap
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: |
+          terraform init -input=false
+
+      - name: Terraform validate
+        run: |
+          terraform validate -no-color -recursive
+
+      - name: Terraform plan
+        id: plan
+        run: |
+          cd bootstrap
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          terraform show -json tfplan > plan.json
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-bootstrap
+          path: |
+            bootstrap/tfplan
+            bootstrap/plan.json
+          retention-days: 5
   plan:
     name: plan (${{ matrix.environment }})
+    needs: bootstrap
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
