@@ -13,7 +13,7 @@
 #   Tier 1 — ENV bucket (created BY THIS module, applied via CI):
 #     tf-state-<account>-<region>
 #     terraform-state-lock  (DynamoDB)
-    # alias/tf-state-<account>-<region>  (KMS)
+#     alias/tf-state-<account>-<region>  (KMS)
 #     Holds every environment's state file (dev/staging/prod/...).
 #     Used by terraform-plan.yml and terraform-apply.yml.
 #
