@@ -1,0 +1,123 @@
+name: Terraform Bootstrap
+
+# Manages the shared state backend (S3 + DynamoDB + KMS) that all environments
+# rely on. Runs ONLY when files under bootstrap/** change, or is dispatched
+# manually. Never blocks environment workflows.
+#
+# First-time-per-account note:
+#   Before this workflow can run, the S3 state bucket and the IAM roles it
+#   assumes must already exist. That is a one-time-per-account setup:
+#     ./bootstrap-account.sh     (creates OIDC + IAM roles + state backend)
+#   After that, ALL further bootstrap changes go through this workflow.
+
+on:
+  pull_request:
+    paths:
+      - "bootstrap/**"
+      - ".github/workflows/terraform-bootstrap.yml"
+  push:
+    branches: [main]
+    paths:
+      - "bootstrap/**"
+      - ".github/workflows/terraform-bootstrap.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.9.5"
+  AWS_REGION: "ap-south-1"
+
+concurrency:
+  group: bootstrap               # only one bootstrap run at a time, ever
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    name: bootstrap plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check
+        working-directory: bootstrap
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        run: |
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          terraform show -json tfplan > plan.json
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-bootstrap
+          path: |
+            bootstrap/tfplan
+            bootstrap/plan.json
+          retention-days: 5
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('bootstrap/plan.txt', 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated)';
+            const body = `### Terraform Plan — \`bootstrap\`\n<details><summary>Show plan</summary>\n\n\`\`\`hcl\n${plan}\n\`\`\`\n</details>`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  apply:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    name: bootstrap apply
+    runs-on: ubuntu-latest
+    environment: bootstrap       # protected env — add required reviewers!
+    defaults:
+      run:
+        working-directory: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, apply role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve

@@ -1,0 +1,32 @@
+name: OIDC Debug
+
+# Tiny diagnostic workflow. Assumes the plan role via OIDC and prints who it
+# ended up as. If this succeeds, all other workflows will too — the problem is
+# a real workflow-level issue. If this fails, the OIDC handshake itself is
+# misconfigured (secret, trust policy, or provider).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print what secret we think we have (masked length only)
+        run: |
+          arn='${{ secrets.AWS_PLAN_ROLE_ARN }}'
+          echo "Secret configured: $([ -n "$arn" ] && echo yes || echo NO)"
+          echo "Secret length:     ${#arn}"
+
+      - name: Try assuming the plan role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Confirm identity
+        run: aws sts get-caller-identity

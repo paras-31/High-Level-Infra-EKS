@@ -3,6 +3,8 @@ name: Terraform Apply
 # Applies infra changes. dev auto-applies on merge to main; staging/prod require
 # manual dispatch and a protected GitHub Environment approval. Uses an OIDC role
 # with apply permissions (separate, more-privileged role than plan).
+#
+# Bootstrap (state backend) has its own workflow: .github/workflows/terraform-bootstrap.yml
 
 on:
   push:
@@ -31,34 +33,8 @@ concurrency:
   cancel-in-progress: false   # never cancel a running apply
 
 jobs:
-  bootstrap:
-    name: bootstrap
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: bootstrap
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}  
-
-      - name: Configure AWS credentials (OIDC, apply role)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Terraform init
-        run: terraform init -input=false
-
-      - name: Terraform apply
-        run:  terraform apply -input=false -auto-approve
-
   apply:
     name: apply (${{ github.event.inputs.environment || 'dev' }})
-    needs: bootstrap
     runs-on: ubuntu-latest
     # GitHub Environment provides the approval gate + scoped secrets.
     environment: ${{ github.event.inputs.environment || 'dev' }}
