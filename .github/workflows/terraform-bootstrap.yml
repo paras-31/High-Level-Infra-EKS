@@ -38,7 +38,7 @@ concurrency:
 jobs:
   plan:
     if: github.event_name == 'pull_request'
-    name: bootstrap plan
+    name: bootstrap plan and apply
     runs-on: ubuntu-latest
     defaults:
       run:
