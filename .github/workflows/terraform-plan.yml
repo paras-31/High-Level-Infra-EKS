@@ -27,7 +27,7 @@ permissions:
   pull-requests: write # to post the plan comment
 
 env:
-  TF_VERSION: "1.9.5"
+  TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
 
 concurrency:
