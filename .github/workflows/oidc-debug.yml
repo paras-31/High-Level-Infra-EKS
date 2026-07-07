@@ -31,7 +31,7 @@ jobs:
             echo "!! Failed to obtain OIDC token from GitHub" >&2
             exit 1
           fi
-          echo "Got OIDC token (length=${#token})"
+          echo "Got GitHub OIDC token (length=${#token})"
 
           echo "----- JWT payload (base64-decoded claims) -----"
           # split JWT header.payload.sig, decode payload
