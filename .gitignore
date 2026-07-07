@@ -11,7 +11,7 @@ plan.txt
 drift.txt
 
 # Variable files with real values (commit only *.example)
-*.tfvars
+
 !*.tfvars.example
 
 # Lock file: DO commit .terraform.lock.hcl (pinned provider hashes)
