@@ -1,9 +1,7 @@
 name: OIDC Debug
 
-# Tiny diagnostic workflow. Assumes the plan role via OIDC and prints who it
-# ended up as. If this succeeds, all other workflows will too — the problem is
-# a real workflow-level issue. If this fails, the OIDC handshake itself is
-# misconfigured (secret, trust policy, or provider).
+# Bypasses aws-actions/configure-aws-credentials so we can see the RAW STS
+# error text that the action normally hides behind a silent retry loop.
 
 on:
   workflow_dispatch:
@@ -16,17 +14,51 @@ jobs:
   debug:
     runs-on: ubuntu-latest
     steps:
-      - name: Print what secret we think we have (masked length only)
+      - name: Inspect the secret we think we have
         run: |
           arn='${{ secrets.AWS_PLAN_ROLE_ARN }}'
           echo "Secret configured: $([ -n "$arn" ] && echo yes || echo NO)"
           echo "Secret length:     ${#arn}"
+          echo "Starts with 'arn:aws:iam::': $(printf %s "$arn" | head -c 15)"
 
-      - name: Try assuming the plan role
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
-          aws-region: ap-south-1
+      - name: Fetch the raw GitHub OIDC token and inspect its claims
+        id: oidc
+        run: |
+          # Request an OIDC token with audience sts.amazonaws.com
+          token=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r .value)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "!! Failed to obtain OIDC token from GitHub" >&2
+            exit 1
+          fi
+          echo "Got OIDC token (length=${#token})"
 
-      - name: Confirm identity
-        run: aws sts get-caller-identity
+          echo "----- JWT payload (base64-decoded claims) -----"
+          # split JWT header.payload.sig, decode payload
+          payload=$(echo "$token" | cut -d. -f2)
+          # pad base64 length to multiple of 4
+          pad=$(( (4 - ${#payload} % 4) % 4 ))
+          padded="${payload}$(printf '%*s' $pad '' | tr ' ' '=')"
+          echo "$padded" | tr '_-' '/+' | base64 -d 2>/dev/null | jq .
+
+          # Save token for the next step (mask it)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Call sts:AssumeRoleWithWebIdentity DIRECTLY and print any error
+        env:
+          ROLE_ARN: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          WEB_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set +e
+          echo "Attempting AssumeRoleWithWebIdentity"
+          echo "Role: $ROLE_ARN"
+          out=$(aws sts assume-role-with-web-identity \
+            --role-arn "$ROLE_ARN" \
+            --role-session-name gh-debug \
+            --web-identity-token "$WEB_TOKEN" \
+            --duration-seconds 900 2>&1)
+          code=$?
+          echo "----- STS response (exit=$code) -----"
+          echo "$out"
+          exit $code
