@@ -7,11 +7,11 @@ name: Terraform Apply
 # Bootstrap (state backend) has its own workflow: .github/workflows/terraform-bootstrap.yml
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "environments/dev/**"
-      - "modules/**"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "environments/dev/**"
+  #     - "modules/**"
   workflow_dispatch:
     inputs:
       environment:
