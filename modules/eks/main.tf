@@ -2,6 +2,15 @@
 # EKS control plane, control-plane logging, and managed EKS add-ons
 ###############################################################################
 
+locals {
+  # AWS normalizes an empty public_access_cidrs list to ["0.0.0.0/0"] when
+  # public access is enabled. Match that here so apply does not attempt a
+  # no-op UpdateClusterConfig that AWS rejects with InvalidParameterException.
+  cluster_public_access_cidrs = (
+    var.cluster_endpoint_public_access && length(var.cluster_endpoint_public_access_cidrs) == 0
+  ) ? ["0.0.0.0/0"] : var.cluster_endpoint_public_access_cidrs
+}
+
 # --------------------------------------------------------------------------- #
 # Control-plane log group (created explicitly for KMS + retention control)
 # --------------------------------------------------------------------------- #
@@ -39,7 +48,7 @@ resource "aws_eks_cluster" "this" {
     security_group_ids      = [aws_security_group.cluster.id]
     endpoint_private_access = true
     endpoint_public_access  = var.cluster_endpoint_public_access
-    public_access_cidrs     = var.cluster_endpoint_public_access_cidrs
+    public_access_cidrs     = local.cluster_public_access_cidrs
   }
 
   access_config {
