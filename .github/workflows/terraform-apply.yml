@@ -19,6 +19,11 @@ on:
         required: true
         type: choice
         options: [dev, staging, prod]
+      adopt_orphans:
+        description: "Import orphaned AWS resources into state before apply (one-time recovery after state wipe)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -56,6 +61,36 @@ jobs:
 
       - name: Terraform init
         run: terraform init -input=false
+
+      - name: Adopt orphaned AWS resources into state
+        if: github.event.inputs.adopt_orphans == 'true'
+        run: |
+          set -euo pipefail
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          case "$ENV" in
+            dev)     CLUSTER=eks-dev-eks;     VPC_PREFIX=eks-dev ;;
+            staging) CLUSTER=eks-staging-eks; VPC_PREFIX=eks-staging ;;
+            prod)    CLUSTER=eks-prod-eks;    VPC_PREFIX=eks-prod ;;
+          esac
+
+          import_if_missing() {
+            local addr="$1" id="$2"
+            if terraform state show "$addr" >/dev/null 2>&1; then
+              echo "Already in state: $addr"
+            else
+              echo "Importing $addr <= $id"
+              terraform import -input=false "$addr" "$id"
+            fi
+          }
+
+          # Left behind when state was wiped but AWS resources survived.
+          import_if_missing \
+            'module.platform.module.eks_addons.aws_iam_policy.lbc[0]' \
+            "arn:aws:iam::${ACCOUNT}:policy/${CLUSTER}-aws-lb-controller"
+          import_if_missing \
+            'module.platform.module.vpc.aws_cloudwatch_log_group.flow_log' \
+            "/aws/vpc/${VPC_PREFIX}/flow-logs"
 
       - name: Terraform apply
         run: terraform apply -input=false -auto-approve
