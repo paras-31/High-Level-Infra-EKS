@@ -40,15 +40,16 @@ jobs:
       run:
         working-directory: environments/${{ github.event.inputs.environment }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Verify confirmation phrase
+        working-directory: .
         run: |
           expected="destroy ${{ github.event.inputs.environment }}"
           if [ "${{ github.event.inputs.confirm }}" != "$expected" ]; then
             echo "::error::Confirmation mismatch. Expected '$expected'." && exit 1
           fi
           echo "Confirmed teardown of ${{ github.event.inputs.environment }}."
-
-      - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
         with:
