@@ -14,16 +14,14 @@ on:
       - ".github/workflows/security-scan.yml"
   push:
     branches: [main]
-workflow_dispatch:
-  inputs:
-    environment:
-      description: The environment to scan
-      required: true
-      default: dev
-    scan_type:
-      description: The type of scan to run
-      required: true
-      default: static
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to scan (informational only; all envs still run)
+        required: false
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
 
 permissions:
   contents: read
