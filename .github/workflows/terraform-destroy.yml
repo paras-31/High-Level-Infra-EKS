@@ -1,33 +1,23 @@
 name: Terraform Destroy
 
-# DESTRUCTIVE. Tears down everything Terraform created in an environment.
-# Safeguards:
-#   * manual dispatch only (never runs automatically)
-#   * you must type the exact confirmation phrase "destroy <environment>"
-#   * runs inside a protected GitHub Environment (add required reviewers!)
-#   * uses the apply (write) OIDC role
-#
-# It also handles the things a plain `terraform destroy` cannot:
-#   * strips `prevent_destroy` in the CI checkout ONLY (never committed)
-#   * empties versioned S3 buckets and ECR repositories first
-
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to DESTROY"
+        description: Environment to destroy
         required: true
         type: choice
         options: [dev, staging, prod]
       confirm:
-        description: 'Type "destroy <environment>" to confirm (e.g. destroy dev)'
+        description: Type destroy dev (or staging/prod) to confirm
         required: true
         type: string
       destroy_bootstrap:
-        description: "Also destroy the state backend (bootstrap). Do this LAST, after all envs are gone."
+        description: Also destroy bootstrap state backend
         required: false
-        type: boolean
-        default: false
+        type: choice
+        options: ["false", "true"]
+        default: "false"
 
 permissions:
   id-token: write
@@ -45,7 +35,7 @@ jobs:
   destroy:
     name: destroy (${{ github.event.inputs.environment }})
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}   # approval gate
+    environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
         working-directory: environments/${{ github.event.inputs.environment }}
@@ -72,8 +62,6 @@ jobs:
 
       - name: Neutralize prevent_destroy (CI workspace only)
         run: |
-          # Allow Terraform to delete lifecycle-protected buckets during destroy.
-          # This edit lives only on the runner — it is never committed.
           find "$GITHUB_WORKSPACE" -name '*.tf' -type f \
             -exec sed -i 's/prevent_destroy *= *true/prevent_destroy = false/g' {} +
           echo "prevent_destroy disabled in workspace."
@@ -88,7 +76,6 @@ jobs:
           for b in $buckets; do
             echo "Emptying s3://$b (all versions + delete markers)"
             aws s3 rm "s3://$b" --recursive || true
-            # purge versions/markers so a versioned bucket can be deleted
             versions=$(aws s3api list-object-versions --bucket "$b" \
               --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' --output json 2>/dev/null || echo '{}')
             if [ "$(echo "$versions" | jq '.Objects | length // 0')" -gt 0 ]; then
@@ -118,10 +105,8 @@ jobs:
 
       - name: Summary
         if: always()
-        run: echo "Destroy of ${{ github.event.inputs.environment }} finished. Note: KMS keys enter a pending-deletion window rather than deleting immediately."
+        run: echo "Destroy of ${{ github.event.inputs.environment }} finished."
 
-  # Optional: tear down the remote-state backend itself. Run ONLY after every
-  # environment above is destroyed. Requires the bootstrap state to be reachable.
   destroy-bootstrap:
     name: destroy bootstrap (state backend)
     needs: destroy
