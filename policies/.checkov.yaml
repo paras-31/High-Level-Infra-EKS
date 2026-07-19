@@ -19,8 +19,15 @@ skip-check:
   # CKV_AWS_39/CKV_AWS_38: public endpoint access is intentionally allowed in dev
   # (CIDR-locked). prod/staging keep it private, enforced by the OPA policy below.
   - CKV_AWS_39
+  - CKV_AWS_38
   # CKV2_AWS_5: SG "attached to a resource" false-positives on rule-only SGs.
   - CKV2_AWS_5
+  # EKS add-on controllers (LBC, Karpenter, external-dns) require broad IAM; scoped by IRSA.
+  - CKV_AWS_355
+  - CKV_AWS_289
+  - CKV_AWS_290
+  # Bootstrap lock table uses AWS-managed DynamoDB encryption (KMS CMK optional for state lock).
+  - CKV_AWS_119
 
 # Treat these as errors (belt-and-suspenders on top of defaults).
 hard-fail-on:

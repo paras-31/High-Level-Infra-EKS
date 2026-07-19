@@ -6,12 +6,18 @@
 ###############################################################################
 package main
 
+# Dev is the only environment allowed to expose a public Kubernetes API endpoint.
+is_dev_cluster(rc) {
+	rc.change.after.name
+	startswith(rc.change.after.name, "eks-dev")
+}
+
 deny[msg] {
 	rc := input.resource_changes[_]
 	rc.type == "aws_eks_cluster"
-	not contains(rc.address, "dev")
+	not is_dev_cluster(rc)
 	rc.change.after.vpc_config[_].endpoint_public_access == true
-	msg := sprintf("EKS cluster '%s' has a public endpoint; only dev may enable it.", [rc.address])
+	msg := sprintf("EKS cluster '%s' has a public endpoint; only dev may enable it.", [rc.change.after.name])
 }
 
 deny[msg] {
