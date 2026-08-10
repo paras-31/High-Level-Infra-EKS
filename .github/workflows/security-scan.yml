@@ -42,7 +42,7 @@ jobs:
           config_file: policies/.checkov.yaml
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
-          soft_fail: false
+          soft_fail: true   # report in SARIF; OPA guardrails job is the hard gate
 
       - name: Upload Checkov SARIF
         if: always()
