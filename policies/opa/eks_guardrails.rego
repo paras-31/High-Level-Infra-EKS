@@ -23,6 +23,35 @@ deny[msg] {
 deny[msg] {
 	rc := input.resource_changes[_]
 	rc.type == "aws_eks_cluster"
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	count(vpc.public_access_cidrs) == 0
+	msg := sprintf("EKS cluster '%s' public endpoint requires explicit admin CIDRs (e.g. YOUR_LAPTOP_IP/32).", [rc.change.after.name])
+}
+
+deny[msg] {
+	rc := input.resource_changes[_]
+	rc.type == "aws_eks_cluster"
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	cidr := vpc.public_access_cidrs[_]
+	cidr == "0.0.0.0/0"
+	msg := sprintf("EKS cluster '%s' public endpoint must not allow 0.0.0.0/0.", [rc.change.after.name])
+}
+
+deny[msg] {
+	rc := input.resource_changes[_]
+	rc.type == "aws_eks_cluster"
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	cidr := vpc.public_access_cidrs[_]
+	cidr == "::/0"
+	msg := sprintf("EKS cluster '%s' public endpoint must not allow ::/0.", [rc.change.after.name])
+}
+
+deny[msg] {
+	rc := input.resource_changes[_]
+	rc.type == "aws_eks_cluster"
 	count(rc.change.after.encryption_config) == 0
 	msg := sprintf("EKS cluster '%s' is missing secrets encryption_config.", [rc.address])
 }

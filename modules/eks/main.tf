@@ -3,12 +3,7 @@
 ###############################################################################
 
 locals {
-  # AWS normalizes an empty public_access_cidrs list to ["0.0.0.0/0"] when
-  # public access is enabled. Match that here so apply does not attempt a
-  # no-op UpdateClusterConfig that AWS rejects with InvalidParameterException.
-  cluster_public_access_cidrs = (
-    var.cluster_endpoint_public_access && length(var.cluster_endpoint_public_access_cidrs) == 0
-  ) ? ["0.0.0.0/0"] : var.cluster_endpoint_public_access_cidrs
+  cluster_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
 }
 
 # --------------------------------------------------------------------------- #

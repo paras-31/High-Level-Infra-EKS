@@ -16,10 +16,9 @@ skip-path:
 
 # Checks we consciously accept (document every skip with a reason).
 skip-check:
-  # CKV_AWS_39/CKV_AWS_38: public endpoint access is intentionally allowed in dev
-  # (CIDR-locked). prod/staging keep it private, enforced by the OPA policy below.
+  # CKV_AWS_39: dev intentionally keeps a CIDR-locked public endpoint for kubectl
+  # from an admin laptop; staging/prod stay private (enforced by OPA).
   - CKV_AWS_39
-  - CKV_AWS_38
   # CKV2_AWS_5: SG "attached to a resource" false-positives on rule-only SGs.
   - CKV2_AWS_5
   # EKS add-on controllers (LBC, Karpenter, external-dns) require broad IAM; scoped by IRSA.
@@ -31,6 +30,7 @@ skip-check:
 
 # Treat these as errors (belt-and-suspenders on top of defaults).
 hard-fail-on:
+  - CKV_AWS_38   # EKS public endpoint not open to 0.0.0.0/0
   - CKV_AWS_58   # EKS secrets encryption
   - CKV_AWS_37   # EKS control-plane logging
   - CKV_AWS_79   # IMDSv2 required

@@ -36,10 +36,10 @@ module "platform" {
   intra_subnet_cidrs   = ["10.10.60.0/24", "10.10.61.0/24", "10.10.62.0/24"]
   single_nat_gateway   = true
 
-  # --- Cluster (public endpoint allowed, CIDR-locked for dev convenience) -- #
+  # --- Cluster (public endpoint CIDR-locked to admin IP only; set in tfvars) #
   cluster_version                      = "1.31"
   cluster_endpoint_public_access       = true
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
+  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs # e.g. ["YOUR_LAPTOP_IP/32"]
   log_retention_days                   = 30
 
   managed_node_groups = {
