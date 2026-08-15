@@ -150,7 +150,7 @@ logs, VPC endpoints) live in `modules/network-eks/`.
 > **Important:** If `GH_MODULE_TOKEN` exists only under GitHub Environments
 > (dev/staging/prod), jobs that do not set `environment:` (e.g. Security Scan on
 > push) will get a 403. Either duplicate the secret at repository level, or we
-> can wire `environment:` on those jobs (may trigger environment approval gates).
+> can wire `environment:` o those jobs (may trigger environment approval gates).
 
 ### Local `terraform init`
 
