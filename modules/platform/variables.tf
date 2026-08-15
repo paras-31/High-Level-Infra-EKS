@@ -88,7 +88,7 @@ variable "enable_vpc_endpoints" {
 variable "interface_endpoints" {
   description = "AWS services exposed via interface VPC endpoints."
   type        = list(string)
-  default     = ["ecr.api", "ecr.dkr", "ec2", "sts", "logs", "elasticloadbalancing", "autoscaling"]
+  default     = ["ecr.api", "ecr.dkr", "ec2", "sts", "logs", "elasticloadbalancing", "autoscaling", "eks"]
 }
 
 # --- EKS (private API enforced in platform/main.tf) ------------------------- #

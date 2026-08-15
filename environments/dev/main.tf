@@ -46,7 +46,7 @@ module "platform" {
       min_size       = 1
       max_size       = 4
       instance_types = ["t3.large"]
-      capacity_type  = "SPOT"
+      capacity_type  = "ON_DEMAND"
       labels         = { role = "default" }
     }
   }

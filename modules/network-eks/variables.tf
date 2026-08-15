@@ -46,7 +46,7 @@ variable "enable_interface_endpoints" {
 variable "interface_endpoints" {
   type = list(string)
   default = [
-    "ecr.api", "ecr.dkr", "ec2", "sts", "logs", "elasticloadbalancing", "autoscaling",
+    "ecr.api", "ecr.dkr", "ec2", "sts", "logs", "elasticloadbalancing", "autoscaling", "eks",
   ]
 }
 

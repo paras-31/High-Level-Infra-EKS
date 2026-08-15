@@ -52,6 +52,36 @@ resource "aws_security_group_rule" "node_from_cluster_443" {
   security_group_id        = aws_security_group.node.id
 }
 
+resource "aws_security_group_rule" "node_from_cluster_sg_kubelet" {
+  description              = "EKS cluster SG to kubelet"
+  type                     = "ingress"
+  from_port                = 10250
+  to_port                  = 10250
+  protocol                 = "tcp"
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  security_group_id        = aws_security_group.node.id
+}
+
+resource "aws_security_group_rule" "node_from_cluster_sg" {
+  description              = "EKS cluster SG to nodes"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  security_group_id        = aws_security_group.node.id
+}
+
+resource "aws_security_group_rule" "node_from_cluster_sg_ephemeral" {
+  description              = "EKS cluster SG to node high ports"
+  type                     = "ingress"
+  from_port                = 1025
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  security_group_id        = aws_security_group.node.id
+}
+
 resource "aws_security_group_rule" "node_egress" {
   description       = "All egress"
   type              = "egress"
@@ -91,7 +121,7 @@ resource "aws_launch_template" "node" {
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2
     instance_metadata_tags      = "disabled"
   }
 
