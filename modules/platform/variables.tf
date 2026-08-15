@@ -46,23 +46,78 @@ variable "single_nat_gateway" {
   default     = false
 }
 
-# --- EKS -------------------------------------------------------------------- #
+# --- VPC (external High-level-VPC git module) ------------------------------- #
+variable "vpc_module_git_ref" {
+  description = "Git ref for paras-31/High-level-VPC modules/vpc."
+  type        = string
+  default     = "main"
+}
+
+variable "vpc_enable_public_subnets" {
+  description = "Public subnets for NAT placement and external LBs (not public EKS API)."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_enable_private_subnets" {
+  description = "Private subnets for EKS nodes."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_enable_nat_gateway" {
+  description = "NAT for private subnet egress."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_enable_nacl" {
+  description = "Subnet NACLs (defense in depth)."
+  type        = bool
+  default     = true
+}
+
+variable "enable_flow_logs" {
+  description = "Send VPC flow logs to encrypted CloudWatch."
+  type        = bool
+  default     = true
+}
+
+variable "enable_vpc_endpoints" {
+  description = "Create VPC endpoints so nodes reach AWS APIs without public internet."
+  type        = bool
+  default     = true
+}
+
+variable "interface_endpoints" {
+  description = "AWS services exposed via interface VPC endpoints."
+  type        = list(string)
+  default     = ["ecr.api", "ecr.dkr", "ec2", "sts", "logs", "elasticloadbalancing", "autoscaling"]
+}
+
+# --- EKS (private API enforced in platform/main.tf) ------------------------- #
+variable "admin_access_cidrs" {
+  description = <<-EOT
+    Admin IP(s) allowed to reach the EKS public API endpoint, as /32 CIDRs
+    (e.g. ["134.238.10.24/32"]). Nodes stay in private subnets — never exposed.
+    Set empty [] for fully private API (VPC/VPN/bastion access only).
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.admin_access_cidrs :
+      !contains(["0.0.0.0/0", "::/0"], cidr)
+    ])
+    error_message = "admin_access_cidrs must not contain 0.0.0.0/0 or ::/0."
+  }
+}
+
 variable "cluster_version" {
   description = "Kubernetes version."
   type        = string
   default     = "1.31"
-}
-
-variable "cluster_endpoint_public_access" {
-  description = "Enable the public API endpoint."
-  type        = bool
-  default     = false
-}
-
-variable "cluster_endpoint_public_access_cidrs" {
-  description = "CIDRs allowed to the public API endpoint."
-  type        = list(string)
-  default     = []
 }
 
 variable "default_instance_types" {

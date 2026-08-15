@@ -4,17 +4,17 @@ variable "aws_region" {
   default     = "ap-south-1"
 }
 
-variable "cluster_endpoint_public_access_cidrs" {
-  description = "Admin IP(s) allowed to reach the public EKS API endpoint. Use your laptop public IP as /32."
+variable "admin_access_cidrs" {
+  description = "Your laptop public IP as /32 — only this host can reach the EKS API from the internet."
   type        = list(string)
 
   validation {
     condition = (
-      length(var.cluster_endpoint_public_access_cidrs) > 0 &&
-      !contains(var.cluster_endpoint_public_access_cidrs, "0.0.0.0/0") &&
-      !contains(var.cluster_endpoint_public_access_cidrs, "::/0")
+      length(var.admin_access_cidrs) > 0 &&
+      !contains(var.admin_access_cidrs, "0.0.0.0/0") &&
+      !contains(var.admin_access_cidrs, "::/0")
     )
-    error_message = "Set cluster_endpoint_public_access_cidrs to your laptop IP only (e.g. [\"203.0.113.45/32\"]). Open internet (0.0.0.0/0) is forbidden."
+    error_message = "Set admin_access_cidrs to your public IP as /32, e.g. [\"134.238.10.24/32\"]."
   }
 }
 

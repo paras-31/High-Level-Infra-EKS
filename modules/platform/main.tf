@@ -1,7 +1,9 @@
 ###############################################################################
-# Platform composition — one call that stands up a complete EKS environment
-# by wiring together the in-house building-block modules:
-#   kms -> vpc -> eks -> eks-addons (IRSA) -> ecr
+# Platform — EKS stack only. VPC comes from external High-level-VPC git repo.
+#
+#   kms  →  High-level-VPC (git, you pass subnet/NAT/NACL values)
+#        →  network-eks (EKS tags, intra subnets, endpoints, flow logs)
+#        →  eks → eks-addons → ecr
 ###############################################################################
 
 locals {
@@ -11,6 +13,12 @@ locals {
     ManagedBy   = "terraform"
     Cluster     = local.cluster_name
   })
+
+  vpc_module_source = "git::https://github.com/paras-31/High-level-VPC.git//modules/vpc?ref=${var.vpc_module_git_ref}"
+
+  # API: private endpoint always; public endpoint only when admin IPs are set (CIDR-locked).
+  eks_public_api_enabled = length(var.admin_access_cidrs) > 0
+  eks_public_api_cidrs   = var.admin_access_cidrs
 }
 
 module "kms" {
@@ -21,24 +29,47 @@ module "kms" {
   tags                    = local.tags
 }
 
+# ── VPC: external private repo — pass only the values you need ────────────────
 module "vpc" {
-  source       = "../vpc"
-  name_prefix  = var.name_prefix
-  cluster_name = local.cluster_name
+  source = local.vpc_module_source
 
-  vpc_cidr             = var.vpc_cidr
-  azs                  = var.azs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  intra_subnet_cidrs   = var.intra_subnet_cidrs
+  name_prefix = var.name_prefix
+  vpc_cidr    = var.vpc_cidr
+  azs         = var.azs
 
-  enable_nat_gateway = true
+  enable_public_subnets  = var.vpc_enable_public_subnets
+  enable_private_subnets = var.vpc_enable_private_subnets
+  public_subnet_cidrs    = var.public_subnet_cidrs
+  private_subnet_cidrs   = var.private_subnet_cidrs
+
+  enable_nat_gateway = var.vpc_enable_nat_gateway
   single_nat_gateway = var.single_nat_gateway
-
-  flow_log_retention_days = var.log_retention_days
-  logs_kms_key_arn        = module.kms.logs_key_arn
+  enable_nacl        = var.vpc_enable_nacl
 
   tags = local.tags
+}
+
+# ── EKS-only network extras (not in High-level-VPC) ─────────────────────────
+module "network_eks" {
+  source = "../network-eks"
+
+  name_prefix             = var.name_prefix
+  vpc_id                  = module.vpc.vpc_id
+  vpc_cidr_block          = module.vpc.vpc_cidr_block
+  cluster_name            = local.cluster_name
+  azs                     = var.azs
+  public_subnet_ids       = module.vpc.public_subnet_ids
+  private_subnet_ids      = module.vpc.private_subnet_ids
+  private_route_table_ids = module.vpc.private_route_table_ids
+  intra_subnet_cidrs      = var.intra_subnet_cidrs
+  enable_flow_logs        = var.enable_flow_logs
+  flow_log_retention_days = var.log_retention_days
+  logs_kms_key_arn        = module.kms.logs_key_arn
+  enable_vpc_endpoints    = var.enable_vpc_endpoints
+  interface_endpoints     = var.interface_endpoints
+  tags                    = local.tags
+
+  depends_on = [module.vpc]
 }
 
 module "eks" {
@@ -48,11 +79,12 @@ module "eks" {
   cluster_version = var.cluster_version
 
   vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_subnets
-  intra_subnet_ids   = module.vpc.intra_subnets
+  private_subnet_ids = module.vpc.private_subnet_ids
+  intra_subnet_ids   = module.network_eks.intra_subnet_ids
 
-  cluster_endpoint_public_access       = var.cluster_endpoint_public_access
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
+  # Private API inside VPC + optional public API locked to admin_access_cidrs only
+  cluster_endpoint_public_access       = local.eks_public_api_enabled
+  cluster_endpoint_public_access_cidrs = local.eks_public_api_cidrs
 
   eks_kms_key_arn  = module.kms.eks_key_arn
   ebs_kms_key_arn  = module.kms.ebs_key_arn

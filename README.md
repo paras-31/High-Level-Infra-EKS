@@ -15,7 +15,7 @@ Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (O
 terraform-eks-infra/
 ├── bootstrap/                 # ➊ S3 + DynamoDB remote-state backend (run once)
 ├── modules/                   # reusable in-house building blocks
-│   ├── vpc/                   #   native VPC: 3-tier subnets, NAT, flow logs, endpoints
+│   ├── network-eks/           #   intra subnets, EKS tags, flow logs, VPC endpoints
 │   ├── kms/                   #   CMKs for EKS secrets / EBS / logs
 │   ├── eks/                   #   native cluster, OIDC/IRSA, node groups, addons, access entries
 │   ├── eks-addons/            #   IRSA for LB controller, external-dns, Karpenter (+queue, node role)
@@ -24,7 +24,7 @@ terraform-eks-infra/
 │   ├── security-baseline/     #   CloudTrail, GuardDuty, Security Hub, Config
 │   └── platform/              #   composition: wires the modules into one environment
 ├── environments/
-│   ├── dev/                   # ➋ cost-optimized, single NAT, CIDR-locked public endpoint
+│   ├── dev/                   # ➋ cost-optimized, single NAT, private API
 │   ├── staging/               #   prod-like, private endpoint
 │   └── prod/                  # ➌ HA, private, full governance
 ├── policies/                  # Checkov config + OPA/Conftest guardrails
@@ -130,6 +130,38 @@ IAM boundaries — is a first-class resource you can edit directly.
 See [`.github/workflows/README.md`](.github/workflows/README.md). PRs get a plan
 comment + security scan; merges auto-apply dev; staging/prod apply behind
 protected environment approvals; a cron job reports drift.
+
+## Private VPC module (`High-level-VPC`)
+
+The platform pulls VPC networking from the private repo
+[`paras-31/High-level-VPC`](https://github.com/paras-31/High-level-VPC) (public + private
+subnets, NAT, NACL). EKS-specific overlays (intra subnets, discovery tags, flow
+logs, VPC endpoints) live in `modules/network-eks/`.
+
+### GitHub Actions setup (required once)
+
+1. Create a **fine-grained PAT** (or classic PAT) with **read** access to
+   `paras-31/High-level-VPC`.
+2. Add repo secret: **`GH_MODULE_TOKEN`** = the PAT value.
+3. Workflows call `.github/actions/setup-private-modules` before `terraform init`.
+
+### Local `terraform init`
+
+```bash
+git config --global url."https://x-access-token:YOUR_PAT@github.com/".insteadOf "https://github.com/"
+cd environments/dev && terraform init
+```
+
+## Secure private EKS
+
+All environments use:
+
+- **Private Kubernetes API** (`cluster_endpoint_public_access = false`)
+- **NACLs** on public/private subnets
+- **VPC endpoints** for AWS APIs (reduce NAT dependency)
+- **VPC flow logs** to encrypted CloudWatch
+
+Access `kubectl` via VPN, bastion, or SSM — not from the public internet.
 
 ## Conventions
 

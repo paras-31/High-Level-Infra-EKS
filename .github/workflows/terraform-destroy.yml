@@ -67,6 +67,11 @@ jobs:
             -exec sed -i 's/prevent_destroy *= *true/prevent_destroy = false/g' {} +
           echo "prevent_destroy disabled in workspace."
 
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
+
       - name: Terraform init
         run: terraform init -input=false
 

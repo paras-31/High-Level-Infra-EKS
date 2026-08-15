@@ -29,18 +29,17 @@ module "platform" {
   environment = "prod"
   aws_region  = var.aws_region
 
+  admin_access_cidrs = var.admin_access_cidrs
+
   # --- Networking (HA: one NAT per AZ) ------------------------------------- #
   vpc_cidr             = "10.30.0.0/16"
   azs                  = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
   private_subnet_cidrs = ["10.30.0.0/20", "10.30.16.0/20", "10.30.32.0/20"]
   public_subnet_cidrs  = ["10.30.48.0/24", "10.30.49.0/24", "10.30.50.0/24"]
   intra_subnet_cidrs   = ["10.30.60.0/24", "10.30.61.0/24", "10.30.62.0/24"]
-  single_nat_gateway   = false
+  single_nat_gateway = false
 
-  # --- Cluster (fully private endpoint) ------------------------------------ #
-  cluster_version                = "1.31"
-  cluster_endpoint_public_access = false
-  log_retention_days             = 365
+  log_retention_days = 365
 
   managed_node_groups = {
     system = {

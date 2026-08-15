@@ -1,0 +1,18 @@
+name: Configure Git for private Terraform modules
+description: Rewrites https://github.com/ URLs to use a PAT for private module sources.
+
+inputs:
+  token:
+    description: GitHub PAT with read access to paras-31/High-level-VPC
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_MODULE_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        git config --global url."https://x-access-token:${GH_MODULE_TOKEN}@github.com/".insteadOf "https://github.com/"
+        echo "Git configured for private Terraform module fetch."

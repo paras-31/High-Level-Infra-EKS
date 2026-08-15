@@ -67,6 +67,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
+
       - name: Terraform fmt
         run: terraform fmt -check -recursive
         working-directory: .

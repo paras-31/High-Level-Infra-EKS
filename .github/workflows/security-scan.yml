@@ -95,6 +95,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
           aws-region: ap-south-1
 
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
+
       - name: Terraform plan -> JSON
         run: |
           terraform init -input=false

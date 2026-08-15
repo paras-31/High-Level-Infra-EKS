@@ -1,7 +1,6 @@
 aws_region = "ap-south-1"
 
-# Your laptop public IP only — find it with: curl -s ifconfig.me
-# Always use /32 so only that single host can reach the EKS API.
-cluster_endpoint_public_access_cidrs = ["134.238.10.24/32"]
+# Your laptop public IP as /32 — update when your ISP changes it
+admin_access_cidrs = ["134.238.10.24/32"]
 
-platform_admin_role_arn = "arn:aws:iam::123456789012:role/PlatformAdmin"
+# platform_admin_role_arn = "arn:aws:iam::765574565805:role/PlatformAdmin"
