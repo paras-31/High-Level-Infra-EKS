@@ -140,10 +140,17 @@ logs, VPC endpoints) live in `modules/network-eks/`.
 
 ### GitHub Actions setup (required once)
 
-1. Create a **fine-grained PAT** (or classic PAT) with **read** access to
-   `paras-31/High-level-VPC`.
-2. Add repo secret: **`GH_MODULE_TOKEN`** = the PAT value.
+1. Create a **fine-grained PAT** with **Contents: Read** on `paras-31/High-level-VPC`
+   (or a classic PAT with the **`repo`** scope).
+2. Add a **repository secret** (not environment-only):
+   **`GH_MODULE_TOKEN`** = the PAT value  
+   (`Settings → Secrets and variables → Actions → Repository secrets`)
 3. Workflows call `.github/actions/setup-private-modules` before `terraform init`.
+
+> **Important:** If `GH_MODULE_TOKEN` exists only under GitHub Environments
+> (dev/staging/prod), jobs that do not set `environment:` (e.g. Security Scan on
+> push) will get a 403. Either duplicate the secret at repository level, or we
+> can wire `environment:` on those jobs (may trigger environment approval gates).
 
 ### Local `terraform init`
 

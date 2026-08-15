@@ -1,5 +1,5 @@
 name: Configure Git for private Terraform modules
-description: Rewrites https://github.com/ URLs to use a PAT for private module sources.
+description: Authenticates git so Terraform can clone paras-31/High-level-VPC.
 
 inputs:
   token:
@@ -14,5 +14,30 @@ runs:
         GH_MODULE_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
+
+        if [ -z "${GH_MODULE_TOKEN}" ]; then
+          echo "::error::GH_MODULE_TOKEN is empty."
+          echo "Add it as a **repository** secret: Settings → Secrets and variables → Actions → New repository secret."
+          echo "If you only added it under Environments (dev/staging/prod), matrix jobs like Security Scan cannot see it — use a repository secret or set environment: on the job."
+          exit 1
+        fi
+
+        # .netrc is the most reliable auth path for Terraform's internal git clone.
+        printf 'machine github.com\nlogin x-access-token\npassword %s\n' "${GH_MODULE_TOKEN}" > "${HOME}/.netrc"
+        chmod 600 "${HOME}/.netrc"
+
+        # URL rewrite covers both https:// and git::https:// module sources.
         git config --global url."https://x-access-token:${GH_MODULE_TOKEN}@github.com/".insteadOf "https://github.com/"
-        echo "Git configured for private Terraform module fetch."
+        git config --global url."https://x-access-token:${GH_MODULE_TOKEN}@github.com/".insteadOf "git::https://github.com/"
+
+        export GIT_TERMINAL_PROMPT=0
+
+        echo "Verifying read access to paras-31/High-level-VPC..."
+        if ! git ls-remote --heads "https://github.com/paras-31/High-level-VPC.git" >/dev/null 2>&1; then
+          echo "::error::Cannot clone paras-31/High-level-VPC (403/404)."
+          echo "Fix: create a fine-grained PAT with Contents: Read on High-level-VPC (or classic PAT with repo scope)."
+          echo "Ensure the PAT owner is a collaborator on the private repo and SSO is authorized if the org requires it."
+          exit 1
+        fi
+
+        echo "Private module access OK."
