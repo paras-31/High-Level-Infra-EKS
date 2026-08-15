@@ -15,6 +15,7 @@ resource "aws_security_group" "vpce" {
   }
 
   egress {
+    description = "Return traffic to VPC clients"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

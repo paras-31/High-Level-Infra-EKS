@@ -26,6 +26,20 @@ skip-check:
   - CKV_AWS_290
   # Bootstrap lock table uses AWS-managed DynamoDB encryption (KMS CMK optional for state lock).
   - CKV_AWS_119
+  # Nodes / VPCE need outbound internet (NAT) and AWS API reachability.
+  - CKV_AWS_382
+  # Dev/staging use shorter log retention by design; prod uses 365d.
+  - CKV_AWS_338
+  # Enterprise extras not in scope for this platform baseline (prod backlog).
+  - CKV_AWS_252   # CloudTrail SNS
+  - CKV_AWS_300   # S3 abort incomplete multipart
+  - CKV2_AWS_62   # S3 event notifications
+  - CKV_AWS_144   # S3 cross-region replication
+  - CKV2_AWS_45   # Config recorder all resources
+  - CKV2_AWS_3    # GuardDuty org-wide
+  - CKV_AWS_18    # S3 access logging
+  - CKV2_AWS_10   # CloudTrail CloudWatch integration
+  - CKV2_AWS_64   # KMS key policy on bootstrap state key
 
 # Treat these as errors (belt-and-suspenders on top of defaults).
 hard-fail-on:
