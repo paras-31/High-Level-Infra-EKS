@@ -67,14 +67,22 @@ resource "aws_kms_key" "this" {
       ] : [],
       each.key == "ebs" ? [
         {
-          Sid       = "AllowAutoScalingServiceLinkedRole"
-          Effect    = "Allow"
-          Principal = { AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling" }
+          Sid    = "AllowEBSVolumeEncryptionInAccount"
+          Effect = "Allow"
+          Principal = {
+            AWS = "*"
+          }
           Action = [
             "kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*",
-            "kms:GenerateDataKey*", "kms:DescribeKey", "kms:CreateGrant"
+            "kms:GenerateDataKey*", "kms:CreateGrant", "kms:DescribeKey"
           ]
           Resource = "*"
+          Condition = {
+            StringEquals = {
+              "kms:CallerAccount" = data.aws_caller_identity.current.account_id
+              "kms:ViaService"    = "ec2.${var.aws_region}.amazonaws.com"
+            }
+          }
         }
       ] : []
     )
