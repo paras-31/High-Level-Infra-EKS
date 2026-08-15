@@ -1,0 +1,45 @@
+name: Fetch private VPC module
+description: Checks out paras-31/High-level-VPC for Terraform (avoids git auth inside terraform init).
+
+inputs:
+  token:
+    description: GitHub PAT with Contents read on paras-31/High-level-VPC
+    required: true
+  ref:
+    description: Git ref of High-level-VPC to use
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Validate token
+      shell: bash
+      env:
+        GH_MODULE_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        if [ -z "${GH_MODULE_TOKEN}" ]; then
+          echo "::error::GH_MODULE_TOKEN is empty."
+          echo "Add it as a repository secret: Settings → Secrets and variables → Actions."
+          exit 1
+        fi
+
+    - name: Checkout High-level-VPC
+      uses: actions/checkout@v4
+      with:
+        repository: paras-31/High-level-VPC
+        token: ${{ inputs.token }}
+        path: .terraform-modules/High-level-VPC
+        ref: ${{ inputs.ref }}
+
+    - name: Verify VPC module path
+      shell: bash
+      run: |
+        set -euo pipefail
+        MODULE_DIR="${GITHUB_WORKSPACE}/.terraform-modules/High-level-VPC/modules/vpc"
+        if [ ! -f "${MODULE_DIR}/main.tf" ]; then
+          echo "::error::VPC module not found at ${MODULE_DIR}"
+          exit 1
+        fi
+        echo "VPC module ready at .terraform-modules/High-level-VPC (ref: ${{ inputs.ref }})"

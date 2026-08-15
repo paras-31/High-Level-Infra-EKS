@@ -1,25 +1,29 @@
 # Environment: `dev`
 
-Cost-optimized development EKS environment.
+Secure private EKS — **nodes never on the internet**; **API locked to your IP only**.
 
-| Aspect | dev value |
-|--------|-----------|
-| VPC CIDR | `10.10.0.0/16` |
-| NAT | **single shared** (cheaper, non-HA) |
-| API endpoint | public **but CIDR-locked** (set `cluster_endpoint_public_access_cidrs`) |
-| Node group | one SPOT `t3.large` group (1–4) |
-| Log retention | 30 days |
-| Governance | none (that lives in `prod`) |
+| Layer | Setting |
+|-------|---------|
+| **EKS API (public)** | Enabled, CIDR-locked to `admin_access_cidrs` in `terraform.tfvars` |
+| **EKS API (private)** | Always enabled (in-VPC access) |
+| **Worker nodes** | Private subnets only, no public IPs |
+| **Node security group** | No `0.0.0.0/0` ingress — cluster SG + node-to-node only |
+| **VPC** | NACL + NAT + VPC endpoints (from High-level-VPC git module) |
+| **IMDSv2** | Required on all nodes |
+| **Secrets** | KMS envelope encryption |
+
+## Update your IP
+
+```bash
+curl -s ifconfig.me   # then set admin_access_cidrs = ["YOUR.IP/32"] in terraform.tfvars
+```
 
 ## Deploy
 
 ```bash
-cd environments/dev
-cp terraform.tfvars.example terraform.tfvars   # set your egress CIDR + admin role
+cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform apply
 aws eks update-kubeconfig --region ap-south-1 --name eks-dev-eks
+kubectl get nodes
 ```
-
-> Public endpoint access is a dev convenience. Lock it to your office/VPN CIDR —
-> never leave `cluster_endpoint_public_access_cidrs` at `0.0.0.0/0`.

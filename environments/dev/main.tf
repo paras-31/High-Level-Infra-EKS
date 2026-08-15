@@ -28,19 +28,17 @@ module "platform" {
   environment = "dev"
   aws_region  = var.aws_region
 
+  admin_access_cidrs = var.admin_access_cidrs
+
   # --- Networking (cost: single shared NAT) -------------------------------- #
   vpc_cidr             = "10.10.0.0/16"
   azs                  = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
   private_subnet_cidrs = ["10.10.0.0/20", "10.10.16.0/20", "10.10.32.0/20"]
   public_subnet_cidrs  = ["10.10.48.0/24", "10.10.49.0/24", "10.10.50.0/24"]
   intra_subnet_cidrs   = ["10.10.60.0/24", "10.10.61.0/24", "10.10.62.0/24"]
-  single_nat_gateway   = true
+  single_nat_gateway = true
 
-  # --- Cluster (public endpoint allowed, CIDR-locked for dev convenience) -- #
-  cluster_version                      = "1.31"
-  cluster_endpoint_public_access       = true
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
-  log_retention_days                   = 30
+  log_retention_days = 30
 
   managed_node_groups = {
     default = {

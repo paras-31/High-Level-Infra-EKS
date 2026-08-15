@@ -5,13 +5,18 @@ output "vpc_id" {
 }
 
 output "private_subnets" {
-  value       = module.vpc.private_subnets
+  value       = module.vpc.private_subnet_ids
   description = "Private subnet IDs."
 }
 
 output "public_subnets" {
-  value       = module.vpc.public_subnets
+  value       = module.vpc.public_subnet_ids
   description = "Public subnet IDs."
+}
+
+output "intra_subnets" {
+  value       = module.network_eks.intra_subnet_ids
+  description = "Intra subnet IDs."
 }
 
 # --- Cluster ---------------------------------------------------------------- #

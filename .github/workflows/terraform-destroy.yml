@@ -26,6 +26,7 @@ permissions:
 env:
   TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
+  AWS_ACCOUNT_ID: "765574565805"
 
 concurrency:
   group: destroy-${{ github.event.inputs.environment }}
@@ -61,11 +62,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+
       - name: Neutralize prevent_destroy (CI workspace only)
         run: |
           find "$GITHUB_WORKSPACE" -name '*.tf' -type f \
             -exec sed -i 's/prevent_destroy *= *true/prevent_destroy = false/g' {} +
           echo "prevent_destroy disabled in workspace."
+
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
 
       - name: Terraform init
         run: terraform init -input=false
@@ -129,6 +140,11 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
 
       - name: Neutralize prevent_destroy (CI workspace only)
         run: |

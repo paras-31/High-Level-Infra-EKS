@@ -32,9 +32,18 @@ variable "cluster_endpoint_public_access" {
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
-  description = "CIDRs allowed to reach the public API endpoint (only used if public access is on)."
+  description = "CIDRs allowed to reach the public API endpoint (only used if public access is on). Set your admin IP as /32, e.g. [\"203.0.113.45/32\"]."
   type        = list(string)
   default     = []
+
+  validation {
+    condition = !var.cluster_endpoint_public_access || (
+      length(var.cluster_endpoint_public_access_cidrs) > 0 &&
+      !contains(var.cluster_endpoint_public_access_cidrs, "0.0.0.0/0") &&
+      !contains(var.cluster_endpoint_public_access_cidrs, "::/0")
+    )
+    error_message = "When the public API endpoint is enabled, set cluster_endpoint_public_access_cidrs to your admin IP(s) only (e.g. YOUR_LAPTOP_IP/32). Open internet (0.0.0.0/0) is forbidden."
+  }
 }
 
 variable "eks_kms_key_arn" {

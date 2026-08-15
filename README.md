@@ -4,8 +4,32 @@ Production-grade **Amazon EKS** platform on AWS, built **entirely from native
 `aws_*` Terraform resources** — no community/public modules. You own every
 resource, so cluster upgrades and attribute changes are always in your hands.
 
-Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
+Region: **ap-south-1** · Account: **`765574565805`** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
 · Governance: **CloudTrail + GuardDuty + Security Hub + AWS Config**.
+
+---
+
+## AWS account & GitHub secrets
+
+All workflows target account **`765574565805`** (ap-south-1). Each job verifies
+the OIDC role lands in this account before `terraform init`.
+
+| Secret | Expected value |
+|--------|----------------|
+| `AWS_PLAN_ROLE_ARN` | `arn:aws:iam::765574565805:role/gh-actions-terraform-plan` |
+| `AWS_APPLY_ROLE_ARN` | `arn:aws:iam::765574565805:role/gh-actions-terraform-apply` |
+| `GH_MODULE_TOKEN` | PAT with Contents read on `High-level-VPC` |
+
+State buckets (must match `backend.tf` on **main**):
+
+| Tier | Bucket |
+|------|--------|
+| Bootstrap seed (Tier 0) | `tf-bootstrap-state-765574565805-ap-south-1-an` |
+| Environment state (Tier 1) | `tf-state-765574565805-ap-south-1` (created by Bootstrap workflow) |
+
+> **Important:** GitHub `main` must include the `765574565805` backend names.
+> If Bootstrap still references `018701995398`, merge the latest branch and
+> re-run workflows.
 
 ---
 
@@ -15,7 +39,7 @@ Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (O
 terraform-eks-infra/
 ├── bootstrap/                 # ➊ S3 + DynamoDB remote-state backend (run once)
 ├── modules/                   # reusable in-house building blocks
-│   ├── vpc/                   #   native VPC: 3-tier subnets, NAT, flow logs, endpoints
+│   ├── network-eks/           #   intra subnets, EKS tags, flow logs, VPC endpoints
 │   ├── kms/                   #   CMKs for EKS secrets / EBS / logs
 │   ├── eks/                   #   native cluster, OIDC/IRSA, node groups, addons, access entries
 │   ├── eks-addons/            #   IRSA for LB controller, external-dns, Karpenter (+queue, node role)
@@ -24,7 +48,7 @@ terraform-eks-infra/
 │   ├── security-baseline/     #   CloudTrail, GuardDuty, Security Hub, Config
 │   └── platform/              #   composition: wires the modules into one environment
 ├── environments/
-│   ├── dev/                   # ➋ cost-optimized, single NAT, CIDR-locked public endpoint
+│   ├── dev/                   # ➋ cost-optimized, single NAT, private API
 │   ├── staging/               #   prod-like, private endpoint
 │   └── prod/                  # ➌ HA, private, full governance
 ├── policies/                  # Checkov config + OPA/Conftest guardrails
@@ -130,6 +154,47 @@ IAM boundaries — is a first-class resource you can edit directly.
 See [`.github/workflows/README.md`](.github/workflows/README.md). PRs get a plan
 comment + security scan; merges auto-apply dev; staging/prod apply behind
 protected environment approvals; a cron job reports drift.
+
+## Private VPC module (`High-level-VPC`)
+
+The platform pulls VPC networking from the private repo
+[`paras-31/High-level-VPC`](https://github.com/paras-31/High-level-VPC) (public + private
+subnets, NAT, NACL). EKS-specific overlays (intra subnets, discovery tags, flow
+logs, VPC endpoints) live in `modules/network-eks/`.
+
+### GitHub Actions setup (required once)
+
+1. Create a **fine-grained PAT** with **Contents: Read** (“Read access to code and metadata”)
+   on `paras-31/High-level-VPC` (or a classic PAT with the **`repo`** scope).
+2. Add a **repository secret**: **`GH_MODULE_TOKEN`** = the PAT value.
+3. Workflows **check out** `High-level-VPC` into `.terraform-modules/` before
+   `terraform init` (Terraform no longer clones the private repo itself).
+
+> After editing PAT permissions, **re-copy the token** into `GH_MODULE_TOKEN`
+> if GitHub generated a new token string.
+
+### Local `terraform init`
+
+```bash
+# Option A — script (uses your git credentials)
+./scripts/fetch-vpc-module.sh main
+
+# Option B — if the VPC repo is already cloned next to this repo
+ln -sf "$(pwd)/../High-level-VPC" .terraform-modules/High-level-VPC
+
+cd environments/dev && terraform init
+```
+
+## Secure private EKS
+
+All environments use:
+
+- **Private Kubernetes API** (`cluster_endpoint_public_access = false`)
+- **NACLs** on public/private subnets
+- **VPC endpoints** for AWS APIs (reduce NAT dependency)
+- **VPC flow logs** to encrypted CloudWatch
+
+Access `kubectl` via VPN, bastion, or SSM — not from the public internet.
 
 ## Conventions
 

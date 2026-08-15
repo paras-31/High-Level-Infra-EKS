@@ -28,16 +28,16 @@ module "platform" {
   environment = "staging"
   aws_region  = var.aws_region
 
+  admin_access_cidrs = var.admin_access_cidrs
+
   vpc_cidr             = "10.20.0.0/16"
   azs                  = ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
   private_subnet_cidrs = ["10.20.0.0/20", "10.20.16.0/20", "10.20.32.0/20"]
   public_subnet_cidrs  = ["10.20.48.0/24", "10.20.49.0/24", "10.20.50.0/24"]
   intra_subnet_cidrs   = ["10.20.60.0/24", "10.20.61.0/24", "10.20.62.0/24"]
-  single_nat_gateway   = true # staging tolerates a single NAT to save cost
+  single_nat_gateway = true
 
-  cluster_version                = "1.31"
-  cluster_endpoint_public_access = false
-  log_retention_days             = 90
+  log_retention_days = 90
 
   managed_node_groups = {
     system = {

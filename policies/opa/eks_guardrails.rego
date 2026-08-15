@@ -6,18 +6,34 @@
 ###############################################################################
 package main
 
-# Dev is the only environment allowed to expose a public Kubernetes API endpoint.
-is_dev_cluster(rc) {
-	rc.change.after.name
-	startswith(rc.change.after.name, "eks-dev")
+# EKS API must not be open to the internet.
+deny[msg] {
+	rc := input.resource_changes[_]
+	rc.type == "aws_eks_cluster"
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	cidr := vpc.public_access_cidrs[_]
+	cidr == "0.0.0.0/0"
+	msg := sprintf("EKS cluster '%s' public API must not allow 0.0.0.0/0.", [rc.change.after.name])
 }
 
 deny[msg] {
 	rc := input.resource_changes[_]
 	rc.type == "aws_eks_cluster"
-	not is_dev_cluster(rc)
-	rc.change.after.vpc_config[_].endpoint_public_access == true
-	msg := sprintf("EKS cluster '%s' has a public endpoint; only dev may enable it.", [rc.change.after.name])
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	cidr := vpc.public_access_cidrs[_]
+	cidr == "::/0"
+	msg := sprintf("EKS cluster '%s' public API must not allow ::/0.", [rc.change.after.name])
+}
+
+deny[msg] {
+	rc := input.resource_changes[_]
+	rc.type == "aws_eks_cluster"
+	vpc := rc.change.after.vpc_config[_]
+	vpc.endpoint_public_access == true
+	count(vpc.public_access_cidrs) == 0
+	msg := sprintf("EKS cluster '%s' public API requires admin_access_cidrs (your IP /32).", [rc.change.after.name])
 }
 
 deny[msg] {

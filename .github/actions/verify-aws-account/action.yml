@@ -1,0 +1,24 @@
+name: Verify AWS account
+description: Fails the job if OIDC credentials are not for the expected AWS account.
+
+inputs:
+  expected_account_id:
+    description: AWS account ID all workflows must use
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        EXPECTED: ${{ inputs.expected_account_id }}
+      run: |
+        set -euo pipefail
+        ACTUAL=$(aws sts get-caller-identity --query Account --output text)
+        echo "AWS account: ${ACTUAL} (expected: ${EXPECTED})"
+        if [ "${ACTUAL}" != "${EXPECTED}" ]; then
+          echo "::error::Wrong AWS account. Got ${ACTUAL}, expected ${EXPECTED}."
+          echo "Update GitHub secrets AWS_PLAN_ROLE_ARN / AWS_APPLY_ROLE_ARN to roles in account ${EXPECTED},"
+          echo "and ensure backend.tf / bootstrap/backend.tf bucket names use ${EXPECTED}."
+          exit 1
+        fi

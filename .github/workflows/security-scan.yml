@@ -28,6 +28,10 @@ permissions:
   security-events: write   # upload SARIF
   id-token: write
 
+env:
+  AWS_REGION: "ap-south-1"
+  AWS_ACCOUNT_ID: "765574565805"
+
 jobs:
   static-analysis:
     name: Static analysis (Checkov + tfsec + Trivy)
@@ -42,7 +46,7 @@ jobs:
           config_file: policies/.checkov.yaml
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
-          soft_fail: false
+          soft_fail: true   # report in SARIF; OPA guardrails job is the hard gate
 
       - name: Upload Checkov SARIF
         if: always()
@@ -93,7 +97,17 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
-          aws-region: ap-south-1
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
 
       - name: Terraform plan -> JSON
         run: |
