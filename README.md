@@ -4,8 +4,32 @@ Production-grade **Amazon EKS** platform on AWS, built **entirely from native
 `aws_*` Terraform resources** — no community/public modules. You own every
 resource, so cluster upgrades and attribute changes are always in your hands.
 
-Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
+Region: **ap-south-1** · Account: **`765574565805`** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
 · Governance: **CloudTrail + GuardDuty + Security Hub + AWS Config**.
+
+---
+
+## AWS account & GitHub secrets
+
+All workflows target account **`765574565805`** (ap-south-1). Each job verifies
+the OIDC role lands in this account before `terraform init`.
+
+| Secret | Expected value |
+|--------|----------------|
+| `AWS_PLAN_ROLE_ARN` | `arn:aws:iam::765574565805:role/gh-actions-terraform-plan` |
+| `AWS_APPLY_ROLE_ARN` | `arn:aws:iam::765574565805:role/gh-actions-terraform-apply` |
+| `GH_MODULE_TOKEN` | PAT with Contents read on `High-level-VPC` |
+
+State buckets (must match `backend.tf` on **main**):
+
+| Tier | Bucket |
+|------|--------|
+| Bootstrap seed (Tier 0) | `tf-bootstrap-state-765574565805-ap-south-1-an` |
+| Environment state (Tier 1) | `tf-state-765574565805-ap-south-1` (created by Bootstrap workflow) |
+
+> **Important:** GitHub `main` must include the `765574565805` backend names.
+> If Bootstrap still references `018701995398`, merge the latest branch and
+> re-run workflows.
 
 ---
 

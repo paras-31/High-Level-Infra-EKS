@@ -1,5 +1,5 @@
 aws_region        = "ap-south-1"
-state_bucket_name = "acme-eks-tfstate-123456789012" # must be globally unique
+state_bucket_name = "tf-state-765574565805-ap-south-1"
 lock_table_name   = "terraform-state-lock"
 
 tags = {

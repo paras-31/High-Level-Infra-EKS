@@ -28,6 +28,10 @@ permissions:
   security-events: write   # upload SARIF
   id-token: write
 
+env:
+  AWS_REGION: "ap-south-1"
+  AWS_ACCOUNT_ID: "765574565805"
+
 jobs:
   static-analysis:
     name: Static analysis (Checkov + tfsec + Trivy)
@@ -93,7 +97,12 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
-          aws-region: ap-south-1
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
 
       - name: Configure Git for private Terraform modules
         uses: ./.github/actions/setup-private-modules
