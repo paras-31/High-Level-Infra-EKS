@@ -23,6 +23,8 @@ Set in each `environments/<env>/main.tf` or override via platform variables:
 | `vpc_enable_nacl` | `true` |
 | `single_nat_gateway` | `true` dev/staging, `false` prod |
 
-EKS API is **always private** (`cluster_endpoint_public_access = false` hardcoded).
+EKS API is **private inside the VPC**; optional public access is CIDR-locked via `admin_access_cidrs`.
+
+VPC module ref is pinned in `main.tf` (`?ref=main`). To upgrade, edit that static `source` line.
 
 See root [README](../../README.md) for `GH_MODULE_TOKEN` setup.

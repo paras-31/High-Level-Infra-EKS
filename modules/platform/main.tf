@@ -14,8 +14,6 @@ locals {
     Cluster     = local.cluster_name
   })
 
-  vpc_module_source = "git::https://github.com/paras-31/High-level-VPC.git//modules/vpc?ref=${var.vpc_module_git_ref}"
-
   # API: private endpoint always; public endpoint only when admin IPs are set (CIDR-locked).
   eks_public_api_enabled = length(var.admin_access_cidrs) > 0
   eks_public_api_cidrs   = var.admin_access_cidrs
@@ -30,8 +28,10 @@ module "kms" {
 }
 
 # ── VPC: external private repo — pass only the values you need ────────────────
+# Module source must be a static string (Terraform forbids variables/locals here).
+# Bump ?ref= when you want to pin a new High-level-VPC release tag.
 module "vpc" {
-  source = local.vpc_module_source
+  source = "git::https://github.com/paras-31/High-level-VPC.git//modules/vpc?ref=main"
 
   name_prefix = var.name_prefix
   vpc_cidr    = var.vpc_cidr

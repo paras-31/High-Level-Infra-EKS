@@ -47,11 +47,7 @@ variable "single_nat_gateway" {
 }
 
 # --- VPC (external High-level-VPC git module) ------------------------------- #
-variable "vpc_module_git_ref" {
-  description = "Git ref for paras-31/High-level-VPC modules/vpc."
-  type        = string
-  default     = "main"
-}
+# Git ref is pinned in main.tf module "vpc" source (Terraform requires a static URL).
 
 variable "vpc_enable_public_subnets" {
   description = "Public subnets for NAT placement and external LBs (not public EKS API)."
