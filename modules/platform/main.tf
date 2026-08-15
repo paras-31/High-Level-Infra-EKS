@@ -28,10 +28,10 @@ module "kms" {
 }
 
 # ── VPC: external private repo — pass only the values you need ────────────────
-# Module source must be a static string (Terraform forbids variables/locals here).
-# Bump ?ref= when you want to pin a new High-level-VPC release tag.
+# CI checks out High-level-VPC to .terraform-modules/ before terraform init.
+# Local: run scripts/fetch-vpc-module.sh once (or clone manually to that path).
 module "vpc" {
-  source = "git::https://github.com/paras-31/High-level-VPC.git//modules/vpc?ref=main"
+  source = "../../.terraform-modules/High-level-VPC/modules/vpc"
 
   name_prefix = var.name_prefix
   vpc_cidr    = var.vpc_cidr

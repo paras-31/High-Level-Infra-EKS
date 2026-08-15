@@ -1,43 +1,45 @@
-name: Configure Git for private Terraform modules
-description: Authenticates git so Terraform can clone paras-31/High-level-VPC.
+name: Fetch private VPC module
+description: Checks out paras-31/High-level-VPC for Terraform (avoids git auth inside terraform init).
 
 inputs:
   token:
-    description: GitHub PAT with read access to paras-31/High-level-VPC
+    description: GitHub PAT with Contents read on paras-31/High-level-VPC
     required: true
+  ref:
+    description: Git ref of High-level-VPC to use
+    required: false
+    default: main
 
 runs:
   using: composite
   steps:
-    - shell: bash
+    - name: Validate token
+      shell: bash
       env:
         GH_MODULE_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
-
         if [ -z "${GH_MODULE_TOKEN}" ]; then
           echo "::error::GH_MODULE_TOKEN is empty."
-          echo "Add it as a **repository** secret: Settings → Secrets and variables → Actions → New repository secret."
-          echo "If you only added it under Environments (dev/staging/prod), matrix jobs like Security Scan cannot see it — use a repository secret or set environment: on the job."
+          echo "Add it as a repository secret: Settings → Secrets and variables → Actions."
           exit 1
         fi
 
-        # .netrc is the most reliable auth path for Terraform's internal git clone.
-        printf 'machine github.com\nlogin x-access-token\npassword %s\n' "${GH_MODULE_TOKEN}" > "${HOME}/.netrc"
-        chmod 600 "${HOME}/.netrc"
+    - name: Checkout High-level-VPC
+      uses: actions/checkout@v4
+      with:
+        repository: paras-31/High-level-VPC
+        token: ${{ inputs.token }}
+        path: .terraform-modules/High-level-VPC
+        ref: ${{ inputs.ref }}
 
-        # URL rewrite covers both https:// and git::https:// module sources.
-        git config --global url."https://x-access-token:${GH_MODULE_TOKEN}@github.com/".insteadOf "https://github.com/"
-        git config --global url."https://x-access-token:${GH_MODULE_TOKEN}@github.com/".insteadOf "git::https://github.com/"
-
-        export GIT_TERMINAL_PROMPT=0
-
-        echo "Verifying read access to paras-31/High-level-VPC..."
-        if ! git ls-remote --heads "https://github.com/paras-31/High-level-VPC.git" >/dev/null 2>&1; then
-          echo "::error::Cannot clone paras-31/High-level-VPC (403/404)."
-          echo "Fix: create a fine-grained PAT with Contents: Read on High-level-VPC (or classic PAT with repo scope)."
-          echo "Ensure the PAT owner is a collaborator on the private repo and SSO is authorized if the org requires it."
+    - name: Verify VPC module path
+      shell: bash
+      run: |
+        set -euo pipefail
+        MODULE_DIR="${GITHUB_WORKSPACE}/.terraform-modules/High-level-VPC/modules/vpc"
+        if [ ! -f "${MODULE_DIR}/main.tf" ]; then
+          echo "::error::VPC module not found at ${MODULE_DIR}"
           exit 1
         fi
-
-        echo "Private module access OK."
+        echo "VPC module ready at .terraform-modules/High-level-VPC (ref: ${{ inputs.ref }})"

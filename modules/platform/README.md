@@ -25,6 +25,7 @@ Set in each `environments/<env>/main.tf` or override via platform variables:
 
 EKS API is **private inside the VPC**; optional public access is CIDR-locked via `admin_access_cidrs`.
 
-VPC module ref is pinned in `main.tf` (`?ref=main`). To upgrade, edit that static `source` line.
+VPC module is checked out to `.terraform-modules/High-level-VPC` in CI.
+Local: run `../../scripts/fetch-vpc-module.sh` from repo root.
 
 See root [README](../../README.md) for `GH_MODULE_TOKEN` setup.

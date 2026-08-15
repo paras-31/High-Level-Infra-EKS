@@ -140,22 +140,24 @@ logs, VPC endpoints) live in `modules/network-eks/`.
 
 ### GitHub Actions setup (required once)
 
-1. Create a **fine-grained PAT** with **Contents: Read** on `paras-31/High-level-VPC`
-   (or a classic PAT with the **`repo`** scope).
-2. Add a **repository secret** (not environment-only):
-   **`GH_MODULE_TOKEN`** = the PAT value  
-   (`Settings → Secrets and variables → Actions → Repository secrets`)
-3. Workflows call `.github/actions/setup-private-modules` before `terraform init`.
+1. Create a **fine-grained PAT** with **Contents: Read** (“Read access to code and metadata”)
+   on `paras-31/High-level-VPC` (or a classic PAT with the **`repo`** scope).
+2. Add a **repository secret**: **`GH_MODULE_TOKEN`** = the PAT value.
+3. Workflows **check out** `High-level-VPC` into `.terraform-modules/` before
+   `terraform init` (Terraform no longer clones the private repo itself).
 
-> **Important:** If `GH_MODULE_TOKEN` exists only under GitHub Environments
-> (dev/staging/prod), jobs that do not set `environment:` (e.g. Security Scan on
-> push) will get a 403. Either duplicate the secret at repository level, or we
-> can wire `environment:` o those jobs (may trigger environment approval gates).
+> After editing PAT permissions, **re-copy the token** into `GH_MODULE_TOKEN`
+> if GitHub generated a new token string.
 
 ### Local `terraform init`
 
 ```bash
-git config --global url."https://x-access-token:YOUR_PAT@github.com/".insteadOf "https://github.com/"
+# Option A — script (uses your git credentials)
+./scripts/fetch-vpc-module.sh main
+
+# Option B — if the VPC repo is already cloned next to this repo
+ln -sf "$(pwd)/../High-level-VPC" .terraform-modules/High-level-VPC
+
 cd environments/dev && terraform init
 ```
 
