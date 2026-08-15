@@ -37,7 +37,7 @@ module "platform" {
   private_subnet_cidrs = ["10.30.0.0/20", "10.30.16.0/20", "10.30.32.0/20"]
   public_subnet_cidrs  = ["10.30.48.0/24", "10.30.49.0/24", "10.30.50.0/24"]
   intra_subnet_cidrs   = ["10.30.60.0/24", "10.30.61.0/24", "10.30.62.0/24"]
-  single_nat_gateway = false
+  single_nat_gateway   = false
 
   log_retention_days = 365
 
