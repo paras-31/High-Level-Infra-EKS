@@ -3,6 +3,18 @@
 # VPC itself is NOT defined here — see modules/platform calling High-level-VPC.
 ###############################################################################
 
+locals {
+  # for_each keys must be plan-time known; subnet IDs come from VPC module outputs.
+  public_subnets_by_az = {
+    for idx, az in var.azs : az => var.public_subnet_ids[idx]
+    if idx < length(var.public_subnet_ids)
+  }
+  private_subnets_by_az = {
+    for idx, az in var.azs : az => var.private_subnet_ids[idx]
+    if idx < length(var.private_subnet_ids)
+  }
+}
+
 resource "aws_subnet" "intra" {
   count = length(var.intra_subnet_cidrs)
 
@@ -29,35 +41,35 @@ resource "aws_route_table_association" "intra" {
 }
 
 resource "aws_ec2_tag" "public_elb" {
-  for_each    = toset(var.public_subnet_ids)
+  for_each    = local.public_subnets_by_az
   resource_id = each.value
   key         = "kubernetes.io/role/elb"
   value       = "1"
 }
 
 resource "aws_ec2_tag" "public_cluster" {
-  for_each    = toset(var.public_subnet_ids)
+  for_each    = local.public_subnets_by_az
   resource_id = each.value
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   value       = "shared"
 }
 
 resource "aws_ec2_tag" "private_internal_elb" {
-  for_each    = toset(var.private_subnet_ids)
+  for_each    = local.private_subnets_by_az
   resource_id = each.value
   key         = "kubernetes.io/role/internal-elb"
   value       = "1"
 }
 
 resource "aws_ec2_tag" "private_cluster" {
-  for_each    = toset(var.private_subnet_ids)
+  for_each    = local.private_subnets_by_az
   resource_id = each.value
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   value       = "shared"
 }
 
 resource "aws_ec2_tag" "private_karpenter" {
-  for_each    = toset(var.private_subnet_ids)
+  for_each    = local.private_subnets_by_az
   resource_id = each.value
   key         = "karpenter.sh/discovery"
   value       = var.cluster_name
