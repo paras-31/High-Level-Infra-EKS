@@ -94,6 +94,13 @@ locals {
       }
     },
   ]
+
+  # Per-key statement lists — avoids conditional tuple/list type mismatches in the resource.
+  kms_policy_statements = {
+    eks = [local.kms_root_statement]
+    ebs = concat([local.kms_root_statement], tolist(local.kms_ebs_statements))
+    logs = concat([local.kms_root_statement], tolist(local.kms_logs_statements))
+  }
 }
 
 resource "aws_kms_key" "this" {
@@ -105,12 +112,8 @@ resource "aws_kms_key" "this" {
   multi_region            = false
 
   policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = concat(
-      [local.kms_root_statement],
-      each.key == "logs" ? local.kms_logs_statements : [],
-      each.key == "ebs" ? local.kms_ebs_statements : [],
-    )
+    Version   = "2012-10-17"
+    Statement = local.kms_policy_statements[each.key]
   })
 
   tags = merge(var.tags, { Purpose = each.key })
