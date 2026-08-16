@@ -4,15 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: Environment to destroy
+        description: "Environment to destroy (dev / staging / prod)"
         required: true
         type: choice
         options: [dev, staging, prod]
-      confirm_environment:
-        description: Confirm — select the same environment again to authorize destroy
+      acknowledge_destruction:
+        description: I understand this permanently deletes all resources in the selected environment
         required: true
-        type: choice
-        options: [dev, staging, prod]
+        type: boolean
       destroy_bootstrap:
         description: Also destroy bootstrap state backend
         required: false
@@ -44,19 +43,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify confirmation
+      - name: Verify destruction acknowledged
         working-directory: .
         env:
           SELECTED_ENV: ${{ github.event.inputs.environment }}
-          CONFIRM_ENV: ${{ github.event.inputs.confirm_environment }}
+          ACKNOWLEDGED: ${{ github.event.inputs.acknowledge_destruction }}
         run: |
           set -euo pipefail
           echo "Environment to destroy: ${SELECTED_ENV}"
-          echo "Confirm selection:      ${CONFIRM_ENV}"
-          if [ "${CONFIRM_ENV}" != "${SELECTED_ENV}" ]; then
-            echo "::error::Both dropdowns must match."
-            echo "::error::You chose environment='${SELECTED_ENV}' but confirm='${CONFIRM_ENV}'."
-            echo "::error::Start a new run and pick the same value in both dropdowns (e.g. prod + prod)."
+          if [ "${ACKNOWLEDGED}" != "true" ]; then
+            echo "::error::Check the box: I understand this permanently deletes all resources."
             exit 1
           fi
           echo "Confirmed teardown of ${SELECTED_ENV}."
