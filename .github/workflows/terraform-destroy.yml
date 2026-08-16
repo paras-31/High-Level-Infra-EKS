@@ -8,10 +8,11 @@ on:
         required: true
         type: choice
         options: [dev, staging, prod]
-      confirm:
-        description: Type destroy dev (or staging/prod) to confirm
+      confirm_environment:
+        description: Confirm — select the same environment again to authorize destroy
         required: true
-        type: string
+        type: choice
+        options: [dev, staging, prod]
       destroy_bootstrap:
         description: Also destroy bootstrap state backend
         required: false
@@ -43,23 +44,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify confirmation phrase
+      - name: Verify confirmation
         working-directory: .
         env:
           SELECTED_ENV: ${{ github.event.inputs.environment }}
-          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
+          CONFIRM_ENV: ${{ github.event.inputs.confirm_environment }}
         run: |
           set -euo pipefail
-          expected="destroy ${SELECTED_ENV}"
-          # Trim accidental leading/trailing whitespace from the UI input.
-          confirm="$(printf '%s' "${CONFIRM_INPUT}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          echo "Selected environment: ${SELECTED_ENV}"
-          echo "You typed confirm:    '${confirm}'"
-          echo "Required confirm:     '${expected}'"
-          if [ "${confirm}" != "${expected}" ]; then
-            echo "::error::Confirmation mismatch for environment '${SELECTED_ENV}'."
-            echo "::error::Type exactly: ${expected}"
-            echo "::error::If you changed the environment dropdown, start a NEW workflow run — Re-run job keeps the original inputs."
+          echo "Environment to destroy: ${SELECTED_ENV}"
+          echo "Confirm selection:      ${CONFIRM_ENV}"
+          if [ "${CONFIRM_ENV}" != "${SELECTED_ENV}" ]; then
+            echo "::error::Both dropdowns must match."
+            echo "::error::You chose environment='${SELECTED_ENV}' but confirm='${CONFIRM_ENV}'."
+            echo "::error::Start a new run and pick the same value in both dropdowns (e.g. prod + prod)."
             exit 1
           fi
           echo "Confirmed teardown of ${SELECTED_ENV}."
