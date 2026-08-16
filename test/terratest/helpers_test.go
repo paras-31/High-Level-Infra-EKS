@@ -1,6 +1,7 @@
 package terratest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,10 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/gruntwork-io/terratest/modules/terraform"
+	"github.com/stretchr/testify/require"
 )
 
 const defaultRegion = "ap-south-1"
+const defaultAWSAccountID = "765574565805"
 
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
@@ -38,6 +43,28 @@ func awsRegion() string {
 
 func expectedClusterName(env string) string {
 	return fmt.Sprintf("eks-%s-eks", env)
+}
+
+func expectedAWSAccountID() string {
+	if accountID := os.Getenv("TEST_AWS_ACCOUNT_ID"); accountID != "" {
+		return accountID
+	}
+	return defaultAWSAccountID
+}
+
+func verifyAWSAccount(t *testing.T, ctx context.Context, cfg aws.Config) {
+	t.Helper()
+
+	identity, err := sts.NewFromConfig(cfg).GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	require.NoError(t, err, "get AWS caller identity")
+
+	actual := aws.ToString(identity.Account)
+	expected := expectedAWSAccountID()
+	t.Logf("AWS account=%s arn=%s", actual, aws.ToString(identity.Arn))
+
+	require.Equal(t, expected, actual,
+		"wrong AWS account — SSO/login to %s before running live tests (current: %s). Run: aws sts get-caller-identity",
+		expected, actual)
 }
 
 func requiredVPCEndpointServices() []string {
@@ -68,10 +95,27 @@ func optionalTerraformOutput(t *testing.T, opts *terraform.Options, name string)
 	t.Helper()
 	out, err := terraform.RunTerraformCommandE(t, opts, "output", "-no-color", "-raw", name)
 	if err != nil {
-		t.Logf("terraform output %q not in state (%v) — using eks-{env}-eks naming fallback", name, err)
+		t.Logf("terraform output %q not in state (%v)", name, err)
 		return "", false
 	}
-	return strings.TrimSpace(out), true
+	out = strings.TrimSpace(out)
+	if name == "cluster_name" && !isClusterNameOutput(out) {
+		t.Logf("terraform output %q unusable (%q) — ignoring", name, out)
+		return "", false
+	}
+	if out == "" {
+		return "", false
+	}
+	return out, true
+}
+
+// isClusterNameOutput rejects terraform warning text and other non-cluster values.
+func isClusterNameOutput(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.Contains(value, "\n") || strings.HasPrefix(value, "Warning:") {
+		return false
+	}
+	return strings.HasPrefix(value, "eks-") && strings.HasSuffix(value, "-eks") && len(value) <= 64
 }
 
 func vpcEndpointShortName(serviceName string) string {

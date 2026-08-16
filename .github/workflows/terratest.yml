@@ -4,6 +4,9 @@ name: Terratest Live Validation
 # Use after apply to diagnose EKS node/addon/network issues without tearing down.
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -67,12 +70,17 @@ jobs:
         with:
           token: ${{ secrets.GH_MODULE_TOKEN }}
 
-      - name: Terraform init (read remote state outputs)
+      - name: Terraform init (optional — for manual output inspection)
+        if: github.event.inputs.run_terraform_validate == 'true'
         run: terraform init -input=false
 
       - name: Go mod download
         working-directory: test
         run: go mod download
+
+      - name: Unit tests (helpers)
+        working-directory: test
+        run: go test ./terratest/... -v -timeout 5m -run TestIsClusterNameOutput
 
       - name: Terraform validate dev (static)
         if: github.event.inputs.run_terraform_validate == 'true' && github.event.inputs.environment == 'dev'

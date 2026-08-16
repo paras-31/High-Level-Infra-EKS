@@ -11,13 +11,12 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	ekstypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
-	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Live validation against deployed infrastructure — does NOT apply or destroy.
-// Reads Terraform state outputs, then checks AWS health (EKS, VPC endpoints, addons).
+// Uses AWS API only (no terraform output — empty/partial state is common).
 func TestLiveInfrastructureHealth(t *testing.T) {
 	env := testEnvironment()
 	region := awsRegion()
@@ -32,19 +31,7 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 
 	t.Logf("Validating live infrastructure for environment=%s cluster=%s region=%s", env, clusterName, region)
 
-	// Optional: read cluster_name from remote state (workflow pre-runs terraform init).
-	// Falls back to eks-{env}-eks when state is empty or output missing.
-	tfOpts := &terraform.Options{
-		TerraformDir: environmentDir(env),
-		NoColor:      true,
-	}
-
-	if outputCluster, ok := optionalTerraformOutput(t, tfOpts, "cluster_name"); ok {
-		assert.Equal(t, clusterName, outputCluster, "terraform output cluster_name mismatch")
-		clusterName = outputCluster
-	} else {
-		t.Logf("Using cluster name from convention: %s", clusterName)
-	}
+	verifyAWSAccount(t, ctx, cfg)
 
 	// ── EKS cluster ─────────────────────────────────────────────────────────
 	cluster, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{
