@@ -112,6 +112,47 @@ jobs:
             fi
           done
 
+      - name: Delete EKS node groups (required before cluster delete)
+        run: |
+          set -euo pipefail
+          ENV="${{ github.event.inputs.environment }}"
+          case "$ENV" in
+            dev)     FALLBACK_CLUSTER=eks-dev-eks ;;
+            staging) FALLBACK_CLUSTER=eks-staging-eks ;;
+            prod)    FALLBACK_CLUSTER=eks-prod-eks ;;
+          esac
+
+          clusters=$(terraform state pull | jq -r '.resources[]? | select(.type=="aws_eks_cluster") | .instances[].attributes.name' | sort -u)
+          if [ -z "$clusters" ]; then
+            clusters="$FALLBACK_CLUSTER"
+          fi
+
+          for cluster in $clusters; do
+            echo "Checking node groups for cluster: $cluster"
+            if ! aws eks describe-cluster --name "$cluster" >/dev/null 2>&1; then
+              echo "Cluster $cluster not found — skipping."
+              continue
+            fi
+            nodegroups=$(aws eks list-nodegroups --cluster-name "$cluster" --query 'nodegroups[]' --output text 2>/dev/null || true)
+            if [ -z "$nodegroups" ]; then
+              echo "No node groups on $cluster."
+              continue
+            fi
+            for ng in $nodegroups; do
+              status=$(aws eks describe-nodegroup --cluster-name "$cluster" --nodegroup-name "$ng" \
+                --query 'nodegroup.status' --output text 2>/dev/null || echo "NOT_FOUND")
+              if [ "$status" = "NOT_FOUND" ]; then
+                continue
+              fi
+              echo "Deleting node group $ng (status: $status) on $cluster"
+              aws eks delete-nodegroup --cluster-name "$cluster" --nodegroup-name "$ng" || true
+            done
+            for ng in $nodegroups; do
+              echo "Waiting for node group $ng to finish deleting..."
+              aws eks wait nodegroup-deleted --cluster-name "$cluster" --nodegroup-name "$ng" 2>/dev/null || true
+            done
+          done
+
       - name: Terraform destroy
         run: terraform destroy -input=false -auto-approve
 
