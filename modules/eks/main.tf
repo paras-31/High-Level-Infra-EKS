@@ -88,8 +88,6 @@ resource "aws_eks_addon" "kube_proxy" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   tags                        = var.tags
-
-  depends_on = [aws_eks_node_group.this]
 }
 
 resource "aws_eks_addon" "vpc_cni" {
@@ -101,7 +99,6 @@ resource "aws_eks_addon" "vpc_cni" {
   tags                        = var.tags
 
   depends_on = [
-    aws_eks_node_group.this,
     aws_iam_openid_connect_provider.this,
     aws_iam_role_policy_attachment.vpc_cni,
   ]
@@ -113,8 +110,6 @@ resource "aws_eks_addon" "pod_identity" {
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   tags                        = var.tags
-
-  depends_on = [aws_eks_node_group.this]
 }
 
 resource "aws_eks_addon" "ebs_csi" {

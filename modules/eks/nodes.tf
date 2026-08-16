@@ -92,6 +92,17 @@ resource "aws_security_group_rule" "node_egress" {
   security_group_id = aws_security_group.node.id
 }
 
+# Let nodes reach the EKS-managed cluster security group (API server on 443).
+resource "aws_security_group_rule" "cluster_sg_from_node_443" {
+  description              = "Nodes to EKS cluster SG on 443"
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.node.id
+  security_group_id        = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+}
+
 # Let nodes reach the additional control-plane SG on 443.
 resource "aws_security_group_rule" "cluster_from_node_443" {
   description              = "Nodes to control plane on 443"
@@ -210,5 +221,7 @@ resource "aws_eks_node_group" "this" {
 
   depends_on = [
     aws_iam_role_policy_attachment.node,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.kube_proxy,
   ]
 }
