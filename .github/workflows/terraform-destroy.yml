@@ -45,12 +45,24 @@ jobs:
 
       - name: Verify confirmation phrase
         working-directory: .
+        env:
+          SELECTED_ENV: ${{ github.event.inputs.environment }}
+          CONFIRM_INPUT: ${{ github.event.inputs.confirm }}
         run: |
-          expected="destroy ${{ github.event.inputs.environment }}"
-          if [ "${{ github.event.inputs.confirm }}" != "$expected" ]; then
-            echo "::error::Confirmation mismatch. Expected '$expected'." && exit 1
+          set -euo pipefail
+          expected="destroy ${SELECTED_ENV}"
+          # Trim accidental leading/trailing whitespace from the UI input.
+          confirm="$(printf '%s' "${CONFIRM_INPUT}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          echo "Selected environment: ${SELECTED_ENV}"
+          echo "You typed confirm:    '${confirm}'"
+          echo "Required confirm:     '${expected}'"
+          if [ "${confirm}" != "${expected}" ]; then
+            echo "::error::Confirmation mismatch for environment '${SELECTED_ENV}'."
+            echo "::error::Type exactly: ${expected}"
+            echo "::error::If you changed the environment dropdown, start a NEW workflow run — Re-run job keeps the original inputs."
+            exit 1
           fi
-          echo "Confirmed teardown of ${{ github.event.inputs.environment }}."
+          echo "Confirmed teardown of ${SELECTED_ENV}."
 
       - uses: hashicorp/setup-terraform@v3
         with:
