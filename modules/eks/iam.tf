@@ -6,7 +6,7 @@ data "aws_partition" "current" {}
 data "aws_caller_identity" "current" {}
 
 locals {
-  arn_prefix = "arn:${data.aws_partition.current.partition}:iam::aws:policy"
+  iam_policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy"
 }
 
 # --------------------------------------------------------------------------- #
@@ -31,12 +31,12 @@ resource "aws_iam_role" "cluster" {
 }
 
 resource "aws_iam_role_policy_attachment" "cluster" {
-  for_each = toset([
-    "${local.arn_prefix}/AmazonEKSClusterPolicy",
-    "${local.arn_prefix}/AmazonEKSVPCResourceController",
-  ])
+  for_each = {
+    AmazonEKSClusterPolicy         = "AmazonEKSClusterPolicy"
+    AmazonEKSVPCResourceController = "AmazonEKSVPCResourceController"
+  }
   role       = aws_iam_role.cluster.name
-  policy_arn = each.value
+  policy_arn = "${local.iam_policy_arn}/${each.value}"
 }
 
 # --------------------------------------------------------------------------- #
@@ -61,15 +61,13 @@ resource "aws_iam_role" "node" {
 }
 
 resource "aws_iam_role_policy_attachment" "node" {
-  for_each = toset([
-    "${local.arn_prefix}/AmazonEKSWorkerNodePolicy",
-    "${local.arn_prefix}/AmazonEC2ContainerRegistryReadOnly",
-    "${local.arn_prefix}/AmazonSSMManagedInstanceCore", # Session Manager, no SSH
-    # NOTE: AmazonEKS_CNI_Policy is intentionally attached to the VPC-CNI IRSA
-    # role (see below), NOT the node role — least privilege for the CNI.
-  ])
+  for_each = {
+    AmazonEKSWorkerNodePolicy          = "AmazonEKSWorkerNodePolicy"
+    AmazonEC2ContainerRegistryReadOnly = "AmazonEC2ContainerRegistryReadOnly"
+    AmazonSSMManagedInstanceCore       = "AmazonSSMManagedInstanceCore"
+  }
   role       = aws_iam_role.node.name
-  policy_arn = each.value
+  policy_arn = "${local.iam_policy_arn}/${each.value}"
 }
 
 # --------------------------------------------------------------------------- #
@@ -123,7 +121,7 @@ resource "aws_iam_role" "vpc_cni" {
 
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
   role       = aws_iam_role.vpc_cni.name
-  policy_arn = "${local.arn_prefix}/AmazonEKS_CNI_Policy"
+  policy_arn = "${local.iam_policy_arn}/AmazonEKS_CNI_Policy"
 }
 
 # --------------------------------------------------------------------------- #
@@ -159,7 +157,7 @@ resource "aws_iam_role" "ebs_csi" {
 
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.ebs_csi.name
-  policy_arn = "${local.arn_prefix}/service-role/AmazonEBSCSIDriverPolicy"
+  policy_arn = "${local.iam_policy_arn}/service-role/AmazonEBSCSIDriverPolicy"
 }
 
 # Allow the CSI driver to use the customer-managed EBS key.
