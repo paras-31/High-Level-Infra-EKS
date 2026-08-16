@@ -26,6 +26,74 @@ locals {
     ebs  = "CMK for EBS volume / EKS node disk encryption"
     logs = "CMK for CloudWatch Logs encryption"
   }
+
+  kms_root_statement = {
+    Sid       = "EnableRootAccount"
+    Effect    = "Allow"
+    Principal = { AWS = local.account_root }
+    Action    = "kms:*"
+    Resource  = "*"
+  }
+
+  kms_logs_statements = [
+    {
+      Sid       = "AllowCloudWatchLogs"
+      Effect    = "Allow"
+      Principal = { Service = "logs.${var.aws_region}.amazonaws.com" }
+      Action = [
+        "kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*",
+        "kms:GenerateDataKey*", "kms:Describe*"
+      ]
+      Resource = "*"
+      Condition = {
+        ArnLike = {
+          "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+        }
+      }
+    },
+    {
+      Sid       = "AllowCloudTrail"
+      Effect    = "Allow"
+      Principal = { Service = "cloudtrail.amazonaws.com" }
+      Action = [
+        "kms:GenerateDataKey*", "kms:Decrypt", "kms:DescribeKey"
+      ]
+      Resource = "*"
+      Condition = {
+        StringLike = {
+          "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
+        }
+      }
+    },
+    {
+      Sid       = "AllowCloudTrailDescribe"
+      Effect    = "Allow"
+      Principal = { Service = "cloudtrail.amazonaws.com" }
+      Action    = ["kms:DescribeKey"]
+      Resource  = "*"
+    },
+  ]
+
+  kms_ebs_statements = [
+    {
+      Sid    = "AllowEBSVolumeEncryptionInAccount"
+      Effect = "Allow"
+      Principal = {
+        AWS = "*"
+      }
+      Action = [
+        "kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*",
+        "kms:GenerateDataKey*", "kms:CreateGrant", "kms:DescribeKey"
+      ]
+      Resource = "*"
+      Condition = {
+        StringEquals = {
+          "kms:CallerAccount" = data.aws_caller_identity.current.account_id
+          "kms:ViaService"    = "ec2.${var.aws_region}.amazonaws.com"
+        }
+      }
+    },
+  ]
 }
 
 resource "aws_kms_key" "this" {
@@ -39,73 +107,9 @@ resource "aws_kms_key" "this" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = concat(
-      [
-        {
-          Sid       = "EnableRootAccount"
-          Effect    = "Allow"
-          Principal = { AWS = local.account_root }
-          Action    = "kms:*"
-          Resource  = "*"
-        }
-      ],
-      each.key == "logs" ? [
-        {
-          Sid       = "AllowCloudWatchLogs"
-          Effect    = "Allow"
-          Principal = { Service = "logs.${var.aws_region}.amazonaws.com" }
-          Action = [
-            "kms:Encrypt*", "kms:Decrypt*", "kms:ReEncrypt*",
-            "kms:GenerateDataKey*", "kms:Describe*"
-          ]
-          Resource = "*"
-          Condition = {
-            ArnLike = {
-              "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
-            }
-          }
-        },
-        {
-          Sid       = "AllowCloudTrail"
-          Effect    = "Allow"
-          Principal = { Service = "cloudtrail.amazonaws.com" }
-          Action = [
-            "kms:GenerateDataKey*", "kms:Decrypt", "kms:DescribeKey"
-          ]
-          Resource = "*"
-          Condition = {
-            StringLike = {
-              "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
-            }
-          }
-        },
-        {
-          Sid       = "AllowCloudTrailDescribe"
-          Effect    = "Allow"
-          Principal = { Service = "cloudtrail.amazonaws.com" }
-          Action    = ["kms:DescribeKey"]
-          Resource  = "*"
-        }
-      ] : [],
-      each.key == "ebs" ? [
-        {
-          Sid    = "AllowEBSVolumeEncryptionInAccount"
-          Effect = "Allow"
-          Principal = {
-            AWS = "*"
-          }
-          Action = [
-            "kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*",
-            "kms:GenerateDataKey*", "kms:CreateGrant", "kms:DescribeKey"
-          ]
-          Resource = "*"
-          Condition = {
-            StringEquals = {
-              "kms:CallerAccount" = data.aws_caller_identity.current.account_id
-              "kms:ViaService"    = "ec2.${var.aws_region}.amazonaws.com"
-            }
-          }
-        }
-      ] : []
+      [local.kms_root_statement],
+      each.key == "logs" ? local.kms_logs_statements : [],
+      each.key == "ebs" ? local.kms_ebs_statements : [],
     )
   })
 
