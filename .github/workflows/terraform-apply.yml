@@ -75,49 +75,7 @@ jobs:
 
       - name: Adopt orphaned AWS resources into state
         if: github.event.inputs.adopt_orphans == 'true'
-        run: |
-          set -euo pipefail
-          ENV="${{ github.event.inputs.environment || 'dev' }}"
-          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-          case "$ENV" in
-            dev)     CLUSTER=eks-dev-eks;     VPC_PREFIX=eks-dev ;;
-            staging) CLUSTER=eks-staging-eks; VPC_PREFIX=eks-staging ;;
-            prod)    CLUSTER=eks-prod-eks;    VPC_PREFIX=eks-prod ;;
-          esac
-
-          import_if_missing() {
-            local addr="$1" id="$2"
-            shift 2
-            if terraform state show "$addr" >/dev/null 2>&1; then
-              echo "Already in state: $addr"
-              return 0
-            fi
-            if ! "$@"; then
-              echo "Skip import — not in AWS (will be created by apply): $addr"
-              return 0
-            fi
-            echo "Importing $addr <= $id"
-            terraform import -input=false "$addr" "$id"
-          }
-
-          log_group_exists() {
-            local name="$1"
-            [[ "$(aws logs describe-log-groups --log-group-name-prefix "$name" \
-              --query "logGroups[?logGroupName=='${name}'] | length(@)" --output text 2>/dev/null || echo 0)" == "1" ]]
-          }
-
-          LBC_POLICY_ARN="arn:aws:iam::${ACCOUNT}:policy/${CLUSTER}-aws-lb-controller"
-          FLOW_LOG_GROUP="/aws/vpc/${VPC_PREFIX}/flow-logs"
-
-          # Only import when AWS still has the resource but state was wiped.
-          import_if_missing \
-            'module.platform.module.eks_addons.aws_iam_policy.lbc[0]' \
-            "$LBC_POLICY_ARN" \
-            aws iam get-policy --policy-arn "$LBC_POLICY_ARN"
-          import_if_missing \
-            'module.platform.module.vpc.aws_cloudwatch_log_group.flow_log' \
-            "$FLOW_LOG_GROUP" \
-            log_group_exists "$FLOW_LOG_GROUP"
+        run: bash ../../scripts/adopt-orphans.sh "${{ github.event.inputs.environment || 'dev' }}"
 
       - name: Terraform apply
         run: terraform apply -input=false -auto-approve
