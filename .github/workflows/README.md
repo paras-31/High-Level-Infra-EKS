@@ -17,6 +17,18 @@ IAM roles, so there are **no long-lived AWS keys** in the repo. Two roles:
 | **terraform-apply.yml** | merge to main (dev) / manual dispatch (any env) | `apply` behind a protected **GitHub Environment** approval for staging/prod. |
 | **drift-detection.yml** | weekday cron 06:00 UTC + manual | `plan -detailed-exitcode` against live state; opens/updates a `drift`-labelled issue when reality diverges from code. |
 | **terraform-destroy.yml** | manual dispatch only | ⚠️ Tears down a whole environment. Requires typing `destroy <env>`, runs behind the environment approval, empties S3/ECR, and temporarily disables `prevent_destroy` (in the runner checkout only). Optionally destroys the state backend. |
+| **terraform-force-unlock.yml** | manual dispatch only | Releases a stale DynamoDB state lock after a cancelled apply/destroy. Requires the Lock ID from the error and typing `unlock <env>`. |
+
+## Releasing a stale state lock
+
+If you cancel a long-running apply/destroy, Terraform may leave a DynamoDB lock behind and block the next run.
+
+**Via CI:** Actions → *Terraform Force Unlock* → *Run workflow* →
+- pick the `environment` (dev / staging / prod / bootstrap),
+- paste the **Lock ID** from the error (UUID, e.g. `c6d1e7ca-f0c7-c2ea-099f-0b308f6a2e36`),
+- type the confirmation `unlock <environment>` (e.g. `unlock dev`).
+
+Then re-run **Terraform Apply** or **Terraform Destroy**.
 
 ## Destroying an environment
 

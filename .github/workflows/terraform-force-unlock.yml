@@ -1,0 +1,105 @@
+name: Terraform Force Unlock
+
+# Releases a stale DynamoDB state lock after a cancelled apply/destroy.
+# Run manually, then retry apply or destroy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment whose state lock to release
+        required: true
+        type: choice
+        options: [dev, staging, prod, bootstrap]
+      lock_id:
+        description: Lock ID from the error (UUID, e.g. c6d1e7ca-f0c7-c2ea-099f-0b308f6a2e36)
+        required: true
+        type: string
+      confirm:
+        description: Type unlock dev (or staging/prod/bootstrap) to confirm
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.10.5"
+  AWS_REGION: "ap-south-1"
+  AWS_ACCOUNT_ID: "765574565805"
+
+concurrency:
+  group: force-unlock-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  force-unlock:
+    name: force-unlock (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment == 'bootstrap' && 'dev' || github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: ${{ github.event.inputs.environment == 'bootstrap' && 'bootstrap' || format('environments/{0}', github.event.inputs.environment) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify confirmation phrase
+        working-directory: .
+        run: |
+          expected="unlock ${{ github.event.inputs.environment }}"
+          if [ "${{ github.event.inputs.confirm }}" != "$expected" ]; then
+            echo "::error::Confirmation mismatch. Expected '$expected'." && exit 1
+          fi
+          echo "Confirmed force-unlock for ${{ github.event.inputs.environment }}."
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, apply role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Show current DynamoDB lock (if any)
+        if: github.event.inputs.environment != 'bootstrap'
+        run: |
+          set -euo pipefail
+          case "${{ github.event.inputs.environment }}" in
+            dev)     STATE_KEY="dev/terraform.tfstate" ;;
+            staging) STATE_KEY="staging/terraform.tfstate" ;;
+            prod)    STATE_KEY="prod/terraform.tfstate" ;;
+          esac
+          LOCK_ID="tf-state-765574565805-ap-south-1/${STATE_KEY}"
+          echo "DynamoDB table: terraform-state-lock"
+          echo "LockID key: ${LOCK_ID}"
+          aws dynamodb get-item \
+            --table-name terraform-state-lock \
+            --key "{\"LockID\":{\"S\":\"${LOCK_ID}\"}}" \
+            --output json | jq -r '.Item // "No lock row found in DynamoDB."'
+
+      - name: Configure Git for private Terraform modules
+        if: github.event.inputs.environment != 'bootstrap'
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
+
+      - name: Terraform init
+        run: terraform init -input=false -reconfigure
+
+      - name: Terraform force-unlock
+        run: terraform force-unlock -force "${{ github.event.inputs.lock_id }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Force-unlock finished for ${{ github.event.inputs.environment }}."
+          echo "Lock ID released: ${{ github.event.inputs.lock_id }}"
+          echo "You can now re-run Terraform Apply or Destroy for this environment."
