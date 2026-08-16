@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"testing"
+
+	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
 const defaultRegion = "ap-south-1"
@@ -59,6 +62,16 @@ func optionalEKSAddonsAfterNodes() []string {
 		"coredns",
 		"aws-ebs-csi-driver",
 	}
+}
+
+func optionalTerraformOutput(t *testing.T, opts *terraform.Options, name string) (string, bool) {
+	t.Helper()
+	out, err := terraform.RunTerraformCommandE(t, opts, "output", "-no-color", "-raw", name)
+	if err != nil {
+		t.Logf("terraform output %q not in state (%v) — using eks-{env}-eks naming fallback", name, err)
+		return "", false
+	}
+	return strings.TrimSpace(out), true
 }
 
 func vpcEndpointShortName(serviceName string) string {

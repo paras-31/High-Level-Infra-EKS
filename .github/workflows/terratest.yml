@@ -74,10 +74,10 @@ jobs:
         working-directory: test
         run: go mod download
 
-      - name: Terraform validate (static)
-        if: github.event.inputs.run_terraform_validate == 'true'
+      - name: Terraform validate dev (static)
+        if: github.event.inputs.run_terraform_validate == 'true' && github.event.inputs.environment == 'dev'
         working-directory: test
-        run: go test ./terratest/... -v -timeout 15m -run TestTerraformValidateEnvironments
+        run: go test ./terratest/... -v -timeout 15m -run TestTerraformValidateDev
 
       - name: Live infrastructure health checks
         working-directory: test

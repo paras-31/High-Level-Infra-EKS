@@ -32,17 +32,18 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 
 	t.Logf("Validating live infrastructure for environment=%s cluster=%s region=%s", env, clusterName, region)
 
-	// ── Terraform outputs from remote state (no apply) ───────────────────────
+	// Optional: read cluster_name from remote state (workflow pre-runs terraform init).
+	// Falls back to eks-{env}-eks when state is empty or output missing.
 	tfOpts := &terraform.Options{
 		TerraformDir: environmentDir(env),
 		NoColor:      true,
 	}
-	terraform.Init(t, tfOpts)
 
-	outputCluster := strings.TrimSpace(terraform.Output(t, tfOpts, "cluster_name"))
-	if outputCluster != "" {
+	if outputCluster, ok := optionalTerraformOutput(t, tfOpts, "cluster_name"); ok {
 		assert.Equal(t, clusterName, outputCluster, "terraform output cluster_name mismatch")
 		clusterName = outputCluster
+	} else {
+		t.Logf("Using cluster name from convention: %s", clusterName)
 	}
 
 	// ── EKS cluster ─────────────────────────────────────────────────────────

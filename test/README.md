@@ -2,6 +2,8 @@
 
 Validates **existing** deployed infrastructure. Does **not** run `terraform apply` or `destroy`.
 
+Live checks call the AWS API directly. If Terraform state has no `cluster_name` output (partial apply), the test falls back to `eks-{env}-eks`.
+
 ## What is tested
 
 | Test | Requires AWS | What it checks |
