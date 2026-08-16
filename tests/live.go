@@ -1,4 +1,4 @@
-package terratest
+package test
 
 import (
 	"context"
@@ -15,10 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Live validation against deployed infrastructure — does NOT apply or destroy.
-// Uses AWS API only (no terraform output — empty/partial state is common).
-func TestLiveInfrastructureHealth(t *testing.T) {
-	env := testEnvironment()
+// assertLiveInfrastructure validates deployed AWS resources for an environment.
+// Does not apply or destroy — read-only health checks after terraform apply.
+func assertLiveInfrastructure(t *testing.T, env string) {
+	t.Helper()
+
 	region := awsRegion()
 	clusterName := expectedClusterName(env)
 
@@ -29,15 +30,22 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 	eksClient := eks.NewFromConfig(cfg)
 	ec2Client := ec2.NewFromConfig(cfg)
 
-	t.Logf("Validating live infrastructure for environment=%s cluster=%s region=%s", env, clusterName, region)
-
+	t.Logf("Live checks: environment=%s cluster=%s region=%s", env, clusterName, region)
 	verifyAWSAccount(t, ctx, cfg)
 
-	// ── EKS cluster ─────────────────────────────────────────────────────────
 	cluster, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{
 		Name: aws.String(clusterName),
 	})
-	require.NoError(t, err, "describe EKS cluster — cluster must exist in AWS")
+	if err != nil {
+		list, listErr := eksClient.ListClusters(ctx, &eks.ListClustersInput{})
+		if listErr == nil && len(list.Clusters) > 0 {
+			require.NoError(t, err,
+				"cluster %s not found — existing clusters in %s: %v. Run Terraform Apply for %s first",
+				clusterName, region, list.Clusters, env)
+		}
+		require.NoError(t, err,
+			"cluster %s not found in %s — run Terraform Apply for %s first", clusterName, region, env)
+	}
 	require.NotNil(t, cluster.Cluster)
 
 	assert.Equal(t, ekstypes.ClusterStatusActive, cluster.Cluster.Status,
@@ -46,14 +54,9 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 	vpcID := aws.ToString(cluster.Cluster.ResourcesVpcConfig.VpcId)
 	require.NotEmpty(t, vpcID, "cluster VPC ID")
 
-	t.Logf("Cluster status=%s version=%s vpc=%s publicAPI=%v",
-		cluster.Cluster.Status,
-		aws.ToString(cluster.Cluster.Version),
-		vpcID,
-		cluster.Cluster.ResourcesVpcConfig.EndpointPublicAccess,
-	)
+	t.Logf("Cluster status=%s version=%s vpc=%s", cluster.Cluster.Status,
+		aws.ToString(cluster.Cluster.Version), vpcID)
 
-	// ── VPC endpoints required for private node ECR pulls ───────────────────
 	endpoints, err := ec2Client.DescribeVpcEndpoints(ctx, &ec2.DescribeVpcEndpointsInput{
 		Filters: []ec2types.Filter{
 			{Name: aws.String("vpc-id"), Values: []string{vpcID}},
@@ -62,37 +65,33 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 	require.NoError(t, err, "describe VPC endpoints")
 
 	serviceStates := map[string]ec2types.State{}
+	hasS3Gateway := false
 	for _, ep := range endpoints.VpcEndpoints {
 		svc := aws.ToString(ep.ServiceName)
 		short := vpcEndpointShortName(svc)
 		serviceStates[short] = ep.State
 		t.Logf("VPC endpoint %s type=%s state=%s", short, ep.VpcEndpointType, ep.State)
-	}
 
-	hasS3Gateway := false
-	for _, ep := range endpoints.VpcEndpoints {
 		if ep.VpcEndpointType == ec2types.VpcEndpointTypeGateway &&
-			strings.Contains(aws.ToString(ep.ServiceName), ".s3") &&
+			strings.Contains(svc, ".s3") &&
 			ep.State == ec2types.StateAvailable {
 			hasS3Gateway = true
 		}
 	}
-	assert.True(t, hasS3Gateway, "S3 gateway VPC endpoint must exist and be available (ECR image layers)")
+	assert.True(t, hasS3Gateway, "S3 gateway VPC endpoint must exist (ECR image layers)")
 
 	for _, svc := range requiredVPCEndpointServices() {
 		state, ok := serviceStates[svc]
-		assert.True(t, ok, "missing VPC interface endpoint for %s — nodes cannot reach AWS APIs privately", svc)
+		assert.True(t, ok, "missing VPC interface endpoint for %s", svc)
 		if ok {
 			assert.Equal(t, ec2types.StateAvailable, state, "VPC endpoint %s should be available", svc)
 		}
 	}
 
-	// ── Node groups ─────────────────────────────────────────────────────────
 	ngList, err := eksClient.ListNodegroups(ctx, &eks.ListNodegroupsInput{
 		ClusterName: aws.String(clusterName),
 	})
 	require.NoError(t, err, "list node groups")
-
 	require.NotEmpty(t, ngList.Nodegroups, "expected at least one managed node group")
 
 	var failedNodeGroups []string
@@ -104,8 +103,7 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 		require.NoError(t, err, "describe node group %s", ngName)
 
 		status := ng.Nodegroup.Status
-		t.Logf("Node group %s status=%s instanceTypes=%v",
-			ngName, status, ng.Nodegroup.InstanceTypes)
+		t.Logf("Node group %s status=%s instanceTypes=%v", ngName, status, ng.Nodegroup.InstanceTypes)
 
 		if status != ekstypes.NodegroupStatusActive {
 			failedNodeGroups = append(failedNodeGroups, ngName)
@@ -113,12 +111,10 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 				t.Errorf("node group %s health issue [%s]: %s", ngName, issue.Code, aws.ToString(issue.Message))
 			}
 		}
-
 		assert.Equal(t, ekstypes.NodegroupStatusActive, status,
-			"node group %s must be ACTIVE (CREATE_FAILED usually means unhealthy nodes / ECR network)", ngName)
+			"node group %s must be ACTIVE", ngName)
 	}
 
-	// ── EKS managed add-ons ─────────────────────────────────────────────────
 	for _, addonName := range requiredEKSAddons() {
 		addon, err := eksClient.DescribeAddon(ctx, &eks.DescribeAddonInput{
 			ClusterName: aws.String(clusterName),
@@ -128,17 +124,9 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 			t.Errorf("required addon %s: %v", addonName, err)
 			continue
 		}
-
-		t.Logf("Addon %s status=%s version=%s", addonName, addon.Addon.Status, aws.ToString(addon.Addon.AddonVersion))
-
-		if addon.Addon.Status != ekstypes.AddonStatusActive {
-			for _, issue := range addon.Addon.Health.Issues {
-				t.Errorf("addon %s issue [%s]: %s", addonName, issue.Code, aws.ToString(issue.Message))
-			}
-		}
-
+		t.Logf("Addon %s status=%s", addonName, addon.Addon.Status)
 		assert.Equal(t, ekstypes.AddonStatusActive, addon.Addon.Status,
-			"addon %s should be ACTIVE; DEGRADED + ImagePullBackOff indicates ECR/VPC endpoint problem", addonName)
+			"addon %s should be ACTIVE", addonName)
 	}
 
 	for _, addonName := range optionalEKSAddonsAfterNodes() {
@@ -147,13 +135,12 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 			AddonName:   aws.String(addonName),
 		})
 		if err != nil {
-			t.Logf("Optional addon %s not installed yet (expected until node groups are ACTIVE): %v", addonName, err)
+			t.Logf("Optional addon %s not installed yet: %v", addonName, err)
 			continue
 		}
 		t.Logf("Optional addon %s status=%s", addonName, addon.Addon.Status)
 	}
 
-	// ── EC2 worker instances ────────────────────────────────────────────────
 	instances, err := ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
 		Filters: []ec2types.Filter{
 			{Name: aws.String("tag:eks:cluster-name"), Values: []string{clusterName}},
@@ -170,7 +157,7 @@ func TestLiveInfrastructureHealth(t *testing.T) {
 	assert.Greater(t, running, 0, "expected running worker EC2 instances for cluster %s", clusterName)
 
 	if len(failedNodeGroups) > 0 {
-		t.Fatalf("node group(s) unhealthy: %s — fix network/ECR endpoints, delete failed node group, re-apply (do not full destroy)",
+		t.Fatalf("node group(s) unhealthy: %s — delete failed node group and re-apply",
 			strings.Join(failedNodeGroups, ", "))
 	}
 }

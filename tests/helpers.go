@@ -1,4 +1,4 @@
-package terratest
+package test
 
 import (
 	"context"
@@ -15,12 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const defaultRegion = "ap-south-1"
-const defaultAWSAccountID = "765574565805"
+const (
+	defaultRegion       = "ap-south-1"
+	defaultAWSAccountID = "765574565805"
+)
+
+var allEnvironments = []string{"dev", "staging", "prod"}
 
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	return filepath.Clean(filepath.Join(filepath.Dir(file), ".."))
 }
 
 func environmentDir(env string) string {
@@ -52,6 +56,10 @@ func expectedAWSAccountID() string {
 	return defaultAWSAccountID
 }
 
+func skipLiveChecks() bool {
+	return os.Getenv("TERRATEST_SKIP_LIVE") == "true"
+}
+
 func verifyAWSAccount(t *testing.T, ctx context.Context, cfg aws.Config) {
 	t.Helper()
 
@@ -63,53 +71,22 @@ func verifyAWSAccount(t *testing.T, ctx context.Context, cfg aws.Config) {
 	t.Logf("AWS account=%s arn=%s", actual, aws.ToString(identity.Arn))
 
 	require.Equal(t, expected, actual,
-		"wrong AWS account — SSO/login to %s before running live tests (current: %s). Run: aws sts get-caller-identity",
+		"wrong AWS account — login to %s before live tests (current: %s)",
 		expected, actual)
 }
 
 func requiredVPCEndpointServices() []string {
-	return []string{
-		"ecr.api",
-		"ecr.dkr",
-		"sts",
-		"eks",
-	}
+	return []string{"ecr.api", "ecr.dkr", "sts", "eks"}
 }
 
 func requiredEKSAddons() []string {
-	return []string{
-		"vpc-cni",
-		"kube-proxy",
-		"eks-pod-identity-agent",
-	}
+	return []string{"vpc-cni", "kube-proxy", "eks-pod-identity-agent"}
 }
 
 func optionalEKSAddonsAfterNodes() []string {
-	return []string{
-		"coredns",
-		"aws-ebs-csi-driver",
-	}
+	return []string{"coredns", "aws-ebs-csi-driver"}
 }
 
-func optionalTerraformOutput(t *testing.T, opts *terraform.Options, name string) (string, bool) {
-	t.Helper()
-	out, err := terraform.RunTerraformCommandE(t, opts, "output", "-no-color", "-raw", name)
-	if err != nil {
-		t.Logf("terraform output %q not in state (%v)", name, err)
-		return "", false
-	}
-	out = strings.TrimSpace(out)
-	if name == "cluster_name" && !isClusterNameOutput(out) {
-		t.Logf("terraform output %q unusable (%q) — ignoring", name, out)
-		return "", false
-	}
-	if out == "" {
-		return "", false
-	}
-	return out, true
-}
-
-// isClusterNameOutput rejects terraform warning text and other non-cluster values.
 func isClusterNameOutput(value string) bool {
 	value = strings.TrimSpace(value)
 	if value == "" || strings.Contains(value, "\n") || strings.HasPrefix(value, "Warning:") {
@@ -134,5 +111,12 @@ func vpcEndpointShortName(serviceName string) string {
 			return parts[len(parts)-1]
 		}
 		return serviceName
+	}
+}
+
+func terraformOptions(env string) *terraform.Options {
+	return &terraform.Options{
+		TerraformDir: environmentDir(env),
+		NoColor:      true,
 	}
 }

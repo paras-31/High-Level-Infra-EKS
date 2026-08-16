@@ -1,21 +1,31 @@
-name: Terratest Live Validation
+name: Terratest
 
-# Validates EXISTING deployed infrastructure — no terraform apply or destroy.
-# Use after apply to diagnose EKS node/addon/network issues without tearing down.
+# Pattern Catalog style: matrix over environments (dev/staging/prod).
+# PR/push = static validate only. Manual dispatch = validate + live AWS checks.
 
 on:
+  pull_request:
+    paths:
+      - "environments/**"
+      - "modules/**"
+      - "tests/**"
+      - ".github/workflows/terratest.yml"
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - "environments/**"
+      - "modules/**"
+      - "tests/**"
+      - ".github/workflows/terratest.yml"
   workflow_dispatch:
     inputs:
       environment:
-        description: Environment to validate against live AWS
+        description: Environment for live AWS validation
         required: true
         type: choice
         options: [dev, staging, prod]
-      run_terraform_validate:
-        description: Also run terraform init + validate (static)
+      run_live_checks:
+        description: Run live AWS health checks (requires deployed cluster)
         required: true
         type: boolean
         default: true
@@ -31,36 +41,63 @@ env:
   AWS_ACCOUNT_ID: "765574565805"
 
 concurrency:
-  group: terratest-${{ github.event.inputs.environment }}
+  group: terratest-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.inputs.environment || 'matrix' }}
   cancel-in-progress: false
 
 jobs:
-  terratest:
-    name: terratest (${{ github.event.inputs.environment }})
+  get-environments:
+    name: Resolve test matrix
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    defaults:
-      run:
-        working-directory: environments/${{ github.event.inputs.environment }}
+    outputs:
+      environments: ${{ steps.set.outputs.environments }}
+      skip_live: ${{ steps.set.outputs.skip_live }}
+    steps:
+      - id: set
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'environments=["${{ github.event.inputs.environment }}"]' >> "$GITHUB_OUTPUT"
+            if [[ "${{ github.event.inputs.run_live_checks }}" == "true" ]]; then
+              echo "skip_live=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "skip_live=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo 'environments=["dev","staging","prod"]' >> "$GITHUB_OUTPUT"
+            echo "skip_live=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  terratest:
+    name: terratest (${{ matrix.environment }})
+    needs: get-environments
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        environment: ${{ fromJson(needs.get-environments.outputs.environments) }}
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: test/go.sum
+          cache-dependency-path: tests/go.sum
 
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Configure AWS credentials (OIDC, read-only)
+      - name: Configure AWS credentials (OIDC)
+        if: needs.get-environments.outputs.skip_live != 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify AWS account
+        if: needs.get-environments.outputs.skip_live != 'true'
         uses: ./.github/actions/verify-aws-account
         with:
           expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
@@ -70,32 +107,24 @@ jobs:
         with:
           token: ${{ secrets.GH_MODULE_TOKEN }}
 
-      - name: Terraform init (optional — for manual output inspection)
-        if: github.event.inputs.run_terraform_validate == 'true'
-        run: terraform init -input=false
-
       - name: Go mod download
-        working-directory: test
+        working-directory: tests
         run: go mod download
 
-      - name: Unit tests (helpers)
-        working-directory: test
-        run: go test ./terratest/... -v -timeout 5m -run TestIsClusterNameOutput
+      - name: Unit tests
+        working-directory: tests
+        run: go test ./... -v -timeout 5m -run TestIsClusterNameOutput
 
-      - name: Terraform validate dev (static)
-        if: github.event.inputs.run_terraform_validate == 'true' && github.event.inputs.environment == 'dev'
-        working-directory: test
-        run: go test ./terratest/... -v -timeout 15m -run TestTerraformValidateDev
-
-      - name: Live infrastructure health checks
-        working-directory: test
+      - name: Terratest (${{ matrix.environment }})
+        working-directory: tests
         env:
-          TEST_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          TEST_ENVIRONMENT: ${{ matrix.environment }}
           AWS_REGION: ${{ env.AWS_REGION }}
-        run: go test ./terratest/... -v -timeout 30m -run TestLiveInfrastructureHealth
+          TERRATEST_SKIP_LIVE: ${{ needs.get-environments.outputs.skip_live }}
+        run: go test ./... -v -timeout 30m -run TestTerraform
 
       - name: Summary
         if: always()
         run: |
-          echo "Terratest finished for ${{ github.event.inputs.environment }}."
-          echo "This workflow does NOT apply or destroy — it only validates live AWS resources."
+          echo "Terratest finished for ${{ matrix.environment }}."
+          echo "skip_live=${{ needs.get-environments.outputs.skip_live }}"

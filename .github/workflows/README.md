@@ -18,15 +18,28 @@ IAM roles, so there are **no long-lived AWS keys** in the repo. Two roles:
 | **drift-detection.yml** | weekday cron 06:00 UTC + manual | `plan -detailed-exitcode` against live state; opens/updates a `drift`-labelled issue when reality diverges from code. |
 | **terraform-destroy.yml** | manual dispatch only | ⚠️ Tears down a whole environment. Pick env + acknowledge checkbox; prod/staging also require GitHub Environment approval. Empties S3/ECR before destroy. Optionally destroys the state backend. |
 | **terraform-force-unlock.yml** | manual dispatch only | Releases a stale DynamoDB state lock after a cancelled apply/destroy. Requires the Lock ID from the error and typing `unlock <env>`. |
-| **terratest.yml** | manual dispatch only | **Read-only** live validation — EKS cluster, node groups, VPC endpoints, addons. No apply/destroy. |
+| **terratest.yml** | PR/push (validate) + manual dispatch (live) | Pattern Catalog–style matrix over dev/staging/prod. PR = `terraform validate` only. Manual = validate + live AWS checks. |
 
-## Terratest (live validation)
+## Terratest
 
-Use when nodes fail or you want to verify infra **without** destroy/reapply:
+Structure matches McK Pattern Catalog (`tests/module_test.go`, env-driven matrix).
 
-Actions → **Terratest Live Validation** → pick `dev` / `staging` / `prod` → Run workflow.
+| Trigger | What runs |
+|---------|-----------|
+| PR / push to `main` | `terraform validate` for dev, staging, prod (parallel, no AWS) |
+| Manual dispatch | Validate + live checks for one environment (cluster must exist) |
 
-Checks: cluster ACTIVE, `ecr.api`/`ecr.dkr`/S3 endpoints, node groups ACTIVE, core addons ACTIVE.
+**Live checks:** cluster ACTIVE, VPC endpoints (ecr.api, ecr.dkr, S3, sts, eks), node groups ACTIVE, core addons ACTIVE.
+
+Actions → **Terratest** → pick environment → enable/disable live checks → Run workflow.
+
+Local:
+
+```bash
+cd tests && go test ./... -v -run TestTerraformAllEnvironments   # validate all
+export TEST_ENVIRONMENT=dev TERRATEST_SKIP_LIVE=true
+cd tests && go test ./... -v -run TestTerraform                   # one env, no AWS
+```
 
 ## Releasing a stale state lock
 
