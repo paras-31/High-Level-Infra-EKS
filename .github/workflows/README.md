@@ -18,6 +18,15 @@ IAM roles, so there are **no long-lived AWS keys** in the repo. Two roles:
 | **drift-detection.yml** | weekday cron 06:00 UTC + manual | `plan -detailed-exitcode` against live state; opens/updates a `drift`-labelled issue when reality diverges from code. |
 | **terraform-destroy.yml** | manual dispatch only | ⚠️ Tears down a whole environment. Pick env + acknowledge checkbox; prod/staging also require GitHub Environment approval. Empties S3/ECR before destroy. Optionally destroys the state backend. |
 | **terraform-force-unlock.yml** | manual dispatch only | Releases a stale DynamoDB state lock after a cancelled apply/destroy. Requires the Lock ID from the error and typing `unlock <env>`. |
+| **terratest.yml** | manual dispatch only | **Read-only** live validation — EKS cluster, node groups, VPC endpoints, addons. No apply/destroy. |
+
+## Terratest (live validation)
+
+Use when nodes fail or you want to verify infra **without** destroy/reapply:
+
+Actions → **Terratest Live Validation** → pick `dev` / `staging` / `prod` → Run workflow.
+
+Checks: cluster ACTIVE, `ecr.api`/`ecr.dkr`/S3 endpoints, node groups ACTIVE, core addons ACTIVE.
 
 ## Releasing a stale state lock
 

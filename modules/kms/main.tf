@@ -63,6 +63,27 @@ resource "aws_kms_key" "this" {
               "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
             }
           }
+        },
+        {
+          Sid       = "AllowCloudTrail"
+          Effect    = "Allow"
+          Principal = { Service = "cloudtrail.amazonaws.com" }
+          Action = [
+            "kms:GenerateDataKey*", "kms:Decrypt", "kms:DescribeKey"
+          ]
+          Resource = "*"
+          Condition = {
+            StringLike = {
+              "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
+            }
+          }
+        },
+        {
+          Sid       = "AllowCloudTrailDescribe"
+          Effect    = "Allow"
+          Principal = { Service = "cloudtrail.amazonaws.com" }
+          Action    = ["kms:DescribeKey"]
+          Resource  = "*"
         }
       ] : [],
       each.key == "ebs" ? [

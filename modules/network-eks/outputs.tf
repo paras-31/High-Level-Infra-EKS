@@ -10,3 +10,11 @@ output "flow_log_group_name" {
 output "vpce_security_group_id" {
   value = try(aws_security_group.vpce[0].id, null)
 }
+
+output "vpc_endpoint_ids" {
+  description = "Created VPC endpoint IDs (used to gate EKS node joins on network readiness)."
+  value = concat(
+    [for ep in aws_vpc_endpoint.interface : ep.id],
+    try([aws_vpc_endpoint.s3[0].id], []),
+  )
+}

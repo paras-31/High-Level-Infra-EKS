@@ -44,6 +44,12 @@ variable "enable_security_hub" {
   default     = true
 }
 
+variable "security_hub_already_enabled" {
+  description = "Set true when the account is already subscribed to Security Hub (e.g. org-level enablement)."
+  type        = bool
+  default     = false
+}
+
 variable "enable_config" {
   description = "Enable AWS Config recorder + managed compliance rules."
   type        = bool

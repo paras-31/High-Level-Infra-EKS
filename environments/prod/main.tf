@@ -84,10 +84,11 @@ module "security_baseline" {
   logs_kms_key_arn   = module.platform.kms_key_arns["logs"]
   log_retention_days = 365
 
-  enable_cloudtrail   = true
-  enable_guardduty    = true
-  enable_security_hub = true
-  enable_config       = true
+  enable_cloudtrail            = true
+  enable_guardduty             = true
+  enable_security_hub          = true
+  security_hub_already_enabled = true # org already subscribed — skip EnableSecurityHub
+  enable_config                = false # blocked by org SCP (explicit deny on PutConfigurationRecorder)
 
   tags = local.tags
 }

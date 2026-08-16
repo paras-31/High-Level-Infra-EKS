@@ -1,0 +1,93 @@
+name: Terratest Live Validation
+
+# Validates EXISTING deployed infrastructure — no terraform apply or destroy.
+# Use after apply to diagnose EKS node/addon/network issues without tearing down.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to validate against live AWS
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      run_terraform_validate:
+        description: Also run terraform init + validate (static)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.10.5"
+  GO_VERSION: "1.22.x"
+  AWS_REGION: "ap-south-1"
+  AWS_ACCOUNT_ID: "765574565805"
+
+concurrency:
+  group: terratest-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  terratest:
+    name: terratest (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: environments/${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: test/go.sum
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC, read-only)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        uses: ./.github/actions/verify-aws-account
+        with:
+          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+
+      - name: Configure Git for private Terraform modules
+        uses: ./.github/actions/setup-private-modules
+        with:
+          token: ${{ secrets.GH_MODULE_TOKEN }}
+
+      - name: Terraform init (read remote state outputs)
+        run: terraform init -input=false
+
+      - name: Go mod download
+        working-directory: test
+        run: go mod download
+
+      - name: Terraform validate (static)
+        if: github.event.inputs.run_terraform_validate == 'true'
+        working-directory: test
+        run: go test ./terratest/... -v -timeout 15m -run TestTerraformValidateEnvironments
+
+      - name: Live infrastructure health checks
+        working-directory: test
+        env:
+          TEST_ENVIRONMENT: ${{ github.event.inputs.environment }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: go test ./terratest/... -v -timeout 30m -run TestLiveInfrastructureHealth
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Terratest finished for ${{ github.event.inputs.environment }}."
+          echo "This workflow does NOT apply or destroy — it only validates live AWS resources."

@@ -99,6 +99,9 @@ module "eks" {
   access_entries      = var.access_entries
 
   tags = local.tags
+
+  # ECR/S3/STS VPC endpoints must exist before nodes pull addon images (602401143452.dkr.ecr.*).
+  depends_on = [module.network_eks]
 }
 
 module "eks_addons" {
