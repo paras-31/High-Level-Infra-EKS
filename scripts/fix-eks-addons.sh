@@ -17,8 +17,8 @@ K8S_VERSION="$(aws eks describe-cluster --name "$CLUSTER" --region "$REGION" \
   --query 'cluster.version' --output text 2>/dev/null || echo "")"
 
 if [[ -z "$K8S_VERSION" || "$K8S_VERSION" == "None" ]]; then
-  echo "Cluster $CLUSTER not found in $REGION"
-  exit 1
+  echo "Cluster $CLUSTER not found in $REGION — fresh install, skipping addon repair."
+  exit 0
 fi
 
 echo "Cluster=$CLUSTER kubernetes=$K8S_VERSION"
