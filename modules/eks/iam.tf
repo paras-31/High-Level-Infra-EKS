@@ -65,7 +65,6 @@ resource "aws_iam_role_policy_attachment" "node" {
     AmazonEKSWorkerNodePolicy          = "AmazonEKSWorkerNodePolicy"
     AmazonEC2ContainerRegistryReadOnly = "AmazonEC2ContainerRegistryReadOnly"
     AmazonSSMManagedInstanceCore       = "AmazonSSMManagedInstanceCore"
-    # Required during first boot until vpc-cni IRSA pods are running on the node.
     AmazonEKS_CNI_Policy               = "AmazonEKS_CNI_Policy"
   }
   role       = aws_iam_role.node.name
@@ -90,41 +89,8 @@ locals {
   oidc_provider_url = replace(aws_iam_openid_connect_provider.this.url, "https://", "")
 }
 
-# --------------------------------------------------------------------------- #
-# IRSA role: AWS VPC CNI (least-privilege networking)
-# --------------------------------------------------------------------------- #
-data "aws_iam_policy_document" "vpc_cni_assume" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-    principals {
-      type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.this.arn]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider_url}:sub"
-      values   = ["system:serviceaccount:kube-system:aws-node"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "${local.oidc_provider_url}:aud"
-      values   = ["sts.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "vpc_cni" {
-  name                 = "${var.cluster_name}-vpc-cni"
-  assume_role_policy   = data.aws_iam_policy_document.vpc_cni_assume.json
-  permissions_boundary = var.permissions_boundary_arn
-  tags                 = var.tags
-}
-
-resource "aws_iam_role_policy_attachment" "vpc_cni" {
-  role       = aws_iam_role.vpc_cni.name
-  policy_arn = "${local.iam_policy_arn}/AmazonEKS_CNI_Policy"
-}
+# VPC CNI uses the node instance role (AmazonEKS_CNI_Policy) — not IRSA — for reliable
+# bootstrap on private clusters. IRSA for vpc-cni caused Degraded addons on k8s 1.31.
 
 # --------------------------------------------------------------------------- #
 # IRSA role: EBS CSI driver (+ permission to use the EBS CMK)

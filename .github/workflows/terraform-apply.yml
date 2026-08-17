@@ -80,5 +80,8 @@ jobs:
       - name: Recover failed node group (delete CREATE_FAILED before apply)
         run: bash ../../scripts/recover-failed-nodegroup.sh "${{ github.event.inputs.environment || 'dev' }}"
 
+      - name: Fix degraded addons (pin vpc-cni/kube-proxy to cluster version)
+        run: bash ../../scripts/fix-eks-addons.sh "${{ github.event.inputs.environment || 'dev' }}"
+
       - name: Terraform apply
         run: terraform apply -input=false -auto-approve

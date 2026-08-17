@@ -51,6 +51,9 @@ resource "aws_eks_cluster" "this" {
     bootstrap_cluster_creator_admin_permissions = true
   }
 
+  # Do NOT set bootstrap_self_managed_addons=false on existing clusters (forces replacement).
+  # Stale bootstrap vpc-cni is fixed via version-pinned aws_eks_addon + OVERWRITE in addons.tf.
+
   # Envelope-encrypt Kubernetes secrets with the customer-managed KMS key.
   encryption_config {
     provider {
@@ -69,56 +72,4 @@ resource "aws_eks_cluster" "this" {
   ]
 }
 
-# --------------------------------------------------------------------------- #
-# Managed EKS add-ons
-# --------------------------------------------------------------------------- #
-resource "aws_eks_addon" "coredns" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "coredns"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-
-  depends_on = [aws_eks_node_group.this]
-}
-
-resource "aws_eks_addon" "kube_proxy" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "kube-proxy"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-}
-
-resource "aws_eks_addon" "vpc_cni" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "vpc-cni"
-  service_account_role_arn    = aws_iam_role.vpc_cni.arn
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-
-  depends_on = [
-    aws_iam_openid_connect_provider.this,
-    aws_iam_role_policy_attachment.vpc_cni,
-  ]
-}
-
-resource "aws_eks_addon" "pod_identity" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "eks-pod-identity-agent"
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-}
-
-resource "aws_eks_addon" "ebs_csi" {
-  cluster_name                = aws_eks_cluster.this.name
-  addon_name                  = "aws-ebs-csi-driver"
-  service_account_role_arn    = aws_iam_role.ebs_csi.arn
-  resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
-  tags                        = var.tags
-
-  depends_on = [aws_eks_node_group.this]
-}
+# Add-ons are defined in addons.tf (version-pinned, ordered before node groups).

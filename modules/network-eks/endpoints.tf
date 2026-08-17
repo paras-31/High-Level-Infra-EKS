@@ -52,7 +52,7 @@ resource "aws_vpc_endpoint" "interface" {
 resource "time_sleep" "wait_for_vpce_dns" {
   count = var.enable_vpc_endpoints ? 1 : 0
 
-  create_duration = "90s"
+  create_duration = "120s"
 
   depends_on = [
     aws_vpc_endpoint.s3,

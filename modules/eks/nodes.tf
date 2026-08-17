@@ -223,6 +223,7 @@ resource "aws_eks_node_group" "this" {
     aws_iam_role_policy_attachment.node,
     aws_eks_addon.vpc_cni,
     aws_eks_addon.kube_proxy,
+    aws_eks_addon.pod_identity,
     terraform_data.network_ready,
   ]
 }
