@@ -47,3 +47,15 @@ resource "aws_vpc_endpoint" "interface" {
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-${each.value}-vpce" })
 }
+
+# Nodes pull ECR images immediately on boot — wait for interface endpoint DNS.
+resource "time_sleep" "wait_for_vpce_dns" {
+  count = var.enable_vpc_endpoints ? 1 : 0
+
+  create_duration = "90s"
+
+  depends_on = [
+    aws_vpc_endpoint.s3,
+    aws_vpc_endpoint.interface,
+  ]
+}

@@ -98,6 +98,9 @@ module "eks" {
   managed_node_groups = var.managed_node_groups
   access_entries      = var.access_entries
 
+  vpc_endpoint_ids      = module.network_eks.vpc_endpoint_ids
+  network_ready_trigger = module.network_eks.network_ready
+
   tags = local.tags
 
   # ECR/S3/STS VPC endpoints must exist before nodes pull addon images (602401143452.dkr.ecr.*).

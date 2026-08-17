@@ -18,3 +18,8 @@ output "vpc_endpoint_ids" {
     try([aws_vpc_endpoint.s3[0].id], []),
   )
 }
+
+output "network_ready" {
+  description = "Changes when VPC endpoints exist and DNS propagation wait completes."
+  value       = var.enable_vpc_endpoints ? time_sleep.wait_for_vpce_dns[0].id : "disabled"
+}

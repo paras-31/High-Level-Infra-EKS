@@ -65,6 +65,8 @@ resource "aws_iam_role_policy_attachment" "node" {
     AmazonEKSWorkerNodePolicy          = "AmazonEKSWorkerNodePolicy"
     AmazonEC2ContainerRegistryReadOnly = "AmazonEC2ContainerRegistryReadOnly"
     AmazonSSMManagedInstanceCore       = "AmazonSSMManagedInstanceCore"
+    # Required during first boot until vpc-cni IRSA pods are running on the node.
+    AmazonEKS_CNI_Policy               = "AmazonEKS_CNI_Policy"
   }
   role       = aws_iam_role.node.name
   policy_arn = "${local.iam_policy_arn}/${each.value}"

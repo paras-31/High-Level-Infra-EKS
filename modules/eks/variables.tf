@@ -118,3 +118,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "vpc_endpoint_ids" {
+  description = "VPC endpoint IDs from network-eks — forces plan-time dependency on private ECR/S3 connectivity."
+  type        = list(string)
+  default     = []
+}
+
+variable "network_ready_trigger" {
+  description = "Opaque value that changes when VPC endpoints + DNS wait are complete."
+  type        = string
+  default     = ""
+}
