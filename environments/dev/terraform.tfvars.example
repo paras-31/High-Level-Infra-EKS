@@ -3,4 +3,4 @@ aws_region = "ap-south-1"
 # Your laptop public IP as /32 — update when your ISP changes it
 admin_access_cidrs = ["134.238.10.24/32"]
 
-# platform_admin_role_arn = "arn:aws:iam::765574565805:role/PlatformAdmin"
+# platform_admin_role_arn = "arn:aws:iam::174765206872:role/PlatformAdmin"

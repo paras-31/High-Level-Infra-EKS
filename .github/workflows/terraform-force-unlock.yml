@@ -27,7 +27,7 @@ permissions:
 env:
   TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "765574565805"
+  AWS_ACCOUNT_ID: "174765206872"
 
 concurrency:
   group: force-unlock-${{ github.event.inputs.environment }}
@@ -77,7 +77,7 @@ jobs:
             staging) STATE_KEY="staging/terraform.tfstate" ;;
             prod)    STATE_KEY="prod/terraform.tfstate" ;;
           esac
-          LOCK_ID="tf-state-765574565805-ap-south-1/${STATE_KEY}"
+          LOCK_ID="tf-state-174765206872-ap-south-1/${STATE_KEY}"
           echo "DynamoDB table: terraform-state-lock"
           echo "LockID key: ${LOCK_ID}"
           aws dynamodb get-item \
