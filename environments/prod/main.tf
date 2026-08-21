@@ -87,7 +87,7 @@ module "security_baseline" {
   enable_cloudtrail            = true
   enable_guardduty             = true
   enable_security_hub          = true
-  security_hub_already_enabled = true # org already subscribed — skip EnableSecurityHub
+  security_hub_already_enabled = true  # org already subscribed — skip EnableSecurityHub
   enable_config                = false # blocked by org SCP (explicit deny on PutConfigurationRecorder)
 
   tags = local.tags
