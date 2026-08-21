@@ -23,7 +23,7 @@ permissions:
 env:
   TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "765574565805"
+  AWS_ACCOUNT_ID: "174765206872"
 
 concurrency:
   group: plan-${{ github.ref }}

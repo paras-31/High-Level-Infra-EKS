@@ -46,6 +46,44 @@ module "vpc" {
   single_nat_gateway = var.single_nat_gateway
   enable_nacl        = var.vpc_enable_nacl
 
+  # The shared vpc-nacl module's default private ruleset only allows inbound
+  # from the VPC CIDR. NACLs are stateless, so return traffic from outside the
+  # VPC (S3 gateway endpoint / NAT) lands on ephemeral ports and is dropped by
+  # the implicit deny. That breaks ECR image-layer pulls from the regional
+  # starport S3 bucket (nodes -> ImagePullBackOff -> CNI never starts ->
+  # nodes NotReady -> nodegroup stuck CREATING). Override the private rules to
+  # add the missing inbound ephemeral-return allow (the public NACL already
+  # has this).
+  private_nacl_rules = [
+    {
+      rule_number = 100
+      egress      = false
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
+      cidr_block  = var.vpc_cidr
+      action      = "allow"
+    },
+    {
+      rule_number = 120
+      egress      = false
+      protocol    = "tcp"
+      from_port   = 1024
+      to_port     = 65535
+      cidr_block  = "0.0.0.0/0"
+      action      = "allow"
+    },
+    {
+      rule_number = 100
+      egress      = true
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
+      cidr_block  = "0.0.0.0/0"
+      action      = "allow"
+    },
+  ]
+
   tags = local.tags
 }
 

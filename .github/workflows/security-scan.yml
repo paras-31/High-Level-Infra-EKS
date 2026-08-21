@@ -32,7 +32,7 @@ permissions:
 
 env:
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "765574565805"
+  AWS_ACCOUNT_ID: "174765206872"
 
 jobs:
   static-analysis:

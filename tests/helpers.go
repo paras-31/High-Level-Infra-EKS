@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultRegion       = "ap-south-1"
-	defaultAWSAccountID = "765574565805"
+	defaultAWSAccountID = "174765206872"
 )
 
 var allEnvironments = []string{"dev", "staging", "prod"}
