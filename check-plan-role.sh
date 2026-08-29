@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---------------- variables (edit if needed) ----------------
-ACCOUNT_ID="374320036370"
-REGION="ap-south-1"
-REPO="paras-31/High-Level-Infra-EKS"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/account.config" ]; then
+  # shellcheck source=/dev/null
+  source "${SCRIPT_DIR}/account.config"
+fi
+
+# ---------------- variables (edit account.config or export before running) ----------------
+ACCOUNT_ID="${ACCOUNT_ID:?Set ACCOUNT_ID in account.config (copy from account.config.example)}"
+REGION="${AWS_REGION:-ap-south-1}"
+REPO="${REPO:-paras-31/High-Level-Infra-EKS}"
 BOOTSTRAP_BUCKET="tf-bootstrap-state-${ACCOUNT_ID}-${REGION}-an"
 STATE_BUCKET="tf-state-${ACCOUNT_ID}-${REGION}"
 LOCK_TABLE="terraform-state-lock"

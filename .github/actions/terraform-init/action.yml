@@ -1,0 +1,74 @@
+name: Terraform init (account-aware backend)
+description: Runs terraform init with S3 backend config derived from the IAM role ARN.
+
+inputs:
+  role_arn:
+    description: IAM role ARN used to derive account ID and bucket names
+    required: true
+  aws_region:
+    description: AWS region for the backend
+    required: false
+    default: ap-south-1
+  stack:
+    description: bootstrap, dev, staging, or prod
+    required: true
+  working_directory:
+    description: Directory containing the Terraform root module
+    required: true
+  reconfigure:
+    description: Pass -reconfigure to terraform init
+    required: false
+    default: "false"
+
+outputs:
+  account_id:
+    description: Resolved AWS account ID
+    value: ${{ steps.aws.outputs.account_id }}
+  state_bucket:
+    description: Tier-1 environment state bucket name
+    value: ${{ steps.aws.outputs.state_bucket }}
+  bootstrap_bucket:
+    description: Tier-0 bootstrap state bucket name
+    value: ${{ steps.aws.outputs.bootstrap_bucket }}
+
+runs:
+  using: composite
+  steps:
+    - id: aws
+      uses: ./.github/actions/resolve-aws-account
+      with:
+        role_arn: ${{ inputs.role_arn }}
+        aws_region: ${{ inputs.aws_region }}
+
+    - shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      env:
+        AWS_REGION: ${{ inputs.aws_region }}
+        STACK: ${{ inputs.stack }}
+        BOOTSTRAP_BUCKET: ${{ steps.aws.outputs.bootstrap_bucket }}
+        STATE_BUCKET: ${{ steps.aws.outputs.state_bucket }}
+        KMS_ALIAS: ${{ steps.aws.outputs.kms_alias }}
+        RECONFIGURE: ${{ inputs.reconfigure }}
+      run: |
+        set -euo pipefail
+        INIT_ARGS=(-input=false)
+        if [ "$RECONFIGURE" = "true" ]; then
+          INIT_ARGS+=(-reconfigure)
+        fi
+
+        if [ "$STACK" = "bootstrap" ]; then
+          terraform init "${INIT_ARGS[@]}" \
+            -backend-config="bucket=${BOOTSTRAP_BUCKET}" \
+            -backend-config="key=bootstrap/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+        else
+          terraform init "${INIT_ARGS[@]}" \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=${STACK}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=terraform-state-lock" \
+            -backend-config="encrypt=true" \
+            -backend-config="kms_key_id=${KMS_ALIAS}"
+        fi

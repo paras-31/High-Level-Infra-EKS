@@ -1,3 +1,5 @@
-aws_region               = "ap-south-1"
-security_log_bucket_name = "eks-security-logs-174765206872-ap-south-1" # globally unique
-platform_admin_role_arn  = "arn:aws:iam::123456789012:role/PlatformAdmin"
+aws_region         = "ap-south-1"
+admin_access_cidrs = ["134.238.10.24/32"]
+
+# security_log_bucket_name defaults to eks-security-logs-<account>-ap-south-1
+# platform_admin_role_arn = "arn:aws:iam::<ACCOUNT_ID>:role/PlatformAdmin"

@@ -5,8 +5,9 @@ variable "aws_region" {
 }
 
 variable "security_log_bucket_name" {
-  description = "Globally-unique S3 bucket name for CloudTrail/Config logs (governance)."
+  description = "Optional override for CloudTrail/Config log bucket. Defaults to eks-security-logs-<account>-<region>."
   type        = string
+  default     = null
 }
 
 variable "admin_access_cidrs" {

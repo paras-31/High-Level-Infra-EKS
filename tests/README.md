@@ -30,7 +30,7 @@ Terratest here does:
 | `TEST_ENVIRONMENT` | — | **Required.** `dev`, `staging`, or `prod` |
 | `TERRATEST_SKIP_LIVE` | `false` | `true` = validate only (used on PR/push) |
 | `AWS_REGION` | `ap-south-1` | AWS region |
-| `TEST_AWS_ACCOUNT_ID` | `174765206872` | Fail fast on wrong account |
+| `TEST_AWS_ACCOUNT_ID` | _(from role ARN in CI)_ | Fail fast on wrong account |
 
 ## Run locally
 
@@ -38,7 +38,7 @@ Terratest here does:
 # Static validate all environments (no AWS)
 cd tests && go test ./... -v -run TestTerraformAllEnvironments
 
-# Validate + live checks for dev (SSO to 174765206872, cluster must exist)
+# Validate + live checks for dev (SSO to your target account, cluster must exist)
 export AWS_REGION=ap-south-1
 export TEST_ENVIRONMENT=dev
 cd tests && go test ./... -v -timeout 30m -run TestTerraform

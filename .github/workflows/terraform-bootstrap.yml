@@ -7,8 +7,11 @@ name: Terraform Bootstrap
 # First-time-per-account note:
 #   Before this workflow can run, the S3 state bucket and the IAM roles it
 #   assumes must already exist. That is a one-time-per-account setup:
-#     ./bootstrap-account.sh     (creates OIDC + IAM roles + state backend)
+#     ./check-plan-role.sh     (creates OIDC + IAM roles)
 #   After that, ALL further bootstrap changes go through this workflow.
+#
+# Account switching: update GitHub secrets AWS_PLAN_ROLE_ARN / AWS_APPLY_ROLE_ARN
+# only — bucket names are derived automatically from the role ARN.
 
 on:
   pull_request:
@@ -30,7 +33,6 @@ permissions:
 env:
   TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "174765206872"
 
 concurrency:
   group: bootstrap               # only one bootstrap run at a time, ever
@@ -60,21 +62,28 @@ jobs:
       - name: Verify AWS account
         uses: ./.github/actions/verify-aws-account
         with:
-          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
 
       - name: Terraform fmt
         run: terraform fmt -check
         working-directory: bootstrap
 
       - name: Terraform init
-        run: terraform init -input=false
+        id: init
+        uses: ./.github/actions/terraform-init
+        with:
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          stack: bootstrap
+          working_directory: bootstrap
 
       - name: Terraform validate
         run: terraform validate -no-color
 
       - name: Terraform plan
         run: |
-          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          terraform plan -input=false -no-color -out=tfplan \
+            -var="state_bucket_name=${{ steps.init.outputs.state_bucket }}" | tee plan.txt
           terraform show -json tfplan > plan.json
 
       - name: Upload plan artifact
@@ -125,10 +134,18 @@ jobs:
       - name: Verify AWS account
         uses: ./.github/actions/verify-aws-account
         with:
-          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          role_arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}
 
       - name: Terraform init
-        run: terraform init -input=false
+        id: init
+        uses: ./.github/actions/terraform-init
+        with:
+          role_arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          stack: bootstrap
+          working_directory: bootstrap
 
       - name: Terraform apply
-        run: terraform apply -input=false -auto-approve
+        run: |
+          terraform apply -input=false -auto-approve \
+            -var="state_bucket_name=${{ steps.init.outputs.state_bucket }}"

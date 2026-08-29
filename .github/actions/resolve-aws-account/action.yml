@@ -1,0 +1,46 @@
+name: Resolve AWS account
+description: Parses account ID and standard state bucket names from an IAM role ARN.
+
+inputs:
+  role_arn:
+    description: IAM role ARN (e.g. AWS_PLAN_ROLE_ARN or AWS_APPLY_ROLE_ARN secret)
+    required: true
+  aws_region:
+    description: AWS region used in bucket naming
+    required: false
+    default: ap-south-1
+
+outputs:
+  account_id:
+    description: 12-digit AWS account ID from the role ARN
+    value: ${{ steps.resolve.outputs.account_id }}
+  bootstrap_bucket:
+    description: Tier-0 bootstrap state bucket name
+    value: ${{ steps.resolve.outputs.bootstrap_bucket }}
+  state_bucket:
+    description: Tier-1 environment state bucket name
+    value: ${{ steps.resolve.outputs.state_bucket }}
+  kms_alias:
+    description: KMS alias for the environment state bucket
+    value: ${{ steps.resolve.outputs.kms_alias }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        ROLE_ARN: ${{ inputs.role_arn }}
+        AWS_REGION: ${{ inputs.aws_region }}
+      run: |
+        set -euo pipefail
+        ACCOUNT_ID=$(echo "$ROLE_ARN" | awk -F: '{print $5}')
+        if ! [[ "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+          echo "::error::Invalid IAM role ARN — expected arn:aws:iam::ACCOUNT_ID:role/... Got: ${ROLE_ARN}"
+          exit 1
+        fi
+        echo "account_id=${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+        echo "bootstrap_bucket=tf-bootstrap-state-${ACCOUNT_ID}-${AWS_REGION}-an" >> "$GITHUB_OUTPUT"
+        echo "state_bucket=tf-state-${ACCOUNT_ID}-${AWS_REGION}" >> "$GITHUB_OUTPUT"
+        echo "kms_alias=alias/tf-state-${ACCOUNT_ID}-${AWS_REGION}" >> "$GITHUB_OUTPUT"
+        echo "Resolved AWS account ${ACCOUNT_ID} (region ${AWS_REGION})"

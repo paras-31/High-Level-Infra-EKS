@@ -1,9 +1,9 @@
 name: Verify AWS account
-description: Fails the job if OIDC credentials are not for the expected AWS account.
+description: Fails the job if OIDC credentials are not for the account in the IAM role ARN.
 
 inputs:
-  expected_account_id:
-    description: AWS account ID all workflows must use
+  role_arn:
+    description: IAM role ARN whose account must match active credentials (AWS_PLAN_ROLE_ARN or AWS_APPLY_ROLE_ARN)
     required: true
 
 runs:
@@ -11,14 +11,19 @@ runs:
   steps:
     - shell: bash
       env:
-        EXPECTED: ${{ inputs.expected_account_id }}
+        ROLE_ARN: ${{ inputs.role_arn }}
       run: |
         set -euo pipefail
+        EXPECTED=$(echo "$ROLE_ARN" | awk -F: '{print $5}')
+        if ! [[ "$EXPECTED" =~ ^[0-9]{12}$ ]]; then
+          echo "::error::Invalid IAM role ARN — expected arn:aws:iam::ACCOUNT_ID:role/... Got: ${ROLE_ARN}"
+          exit 1
+        fi
         ACTUAL=$(aws sts get-caller-identity --query Account --output text)
-        echo "AWS account: ${ACTUAL} (expected: ${EXPECTED})"
+        echo "AWS account: ${ACTUAL} (expected from role ARN: ${EXPECTED})"
         if [ "${ACTUAL}" != "${EXPECTED}" ]; then
-          echo "::error::Wrong AWS account. Got ${ACTUAL}, expected ${EXPECTED}."
-          echo "Update GitHub secrets AWS_PLAN_ROLE_ARN / AWS_APPLY_ROLE_ARN to roles in account ${EXPECTED},"
-          echo "and ensure backend.tf / bootstrap/backend.tf bucket names use ${EXPECTED}."
+          echo "::error::Wrong AWS account. Got ${ACTUAL}, expected ${EXPECTED} (from role ARN)."
+          echo "Update GitHub secrets AWS_PLAN_ROLE_ARN / AWS_APPLY_ROLE_ARN to roles in account ${ACTUAL},"
+          echo "or log in to account ${EXPECTED} before running local Terraform."
           exit 1
         fi
