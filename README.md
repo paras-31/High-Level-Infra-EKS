@@ -4,32 +4,39 @@ Production-grade **Amazon EKS** platform on AWS, built **entirely from native
 `aws_*` Terraform resources** — no community/public modules. You own every
 resource, so cluster upgrades and attribute changes are always in your hands.
 
-Region: **ap-south-1** · Account: **`174765206872`** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
+Region: **ap-south-1** · State: **S3 + DynamoDB** · CI/CD: **GitHub Actions (OIDC)**
 · Governance: **CloudTrail + GuardDuty + Security Hub + AWS Config**.
 
 ---
 
 ## AWS account & GitHub secrets
 
-All workflows target account **`174765206872`** (ap-south-1). Each job verifies
-the OIDC role lands in this account before `terraform init`.
+**To switch AWS accounts**, update only these GitHub secrets — no code changes needed:
 
-| Secret | Expected value |
-|--------|----------------|
-| `AWS_PLAN_ROLE_ARN` | `arn:aws:iam::174765206872:role/gh-actions-terraform-plan` |
-| `AWS_APPLY_ROLE_ARN` | `arn:aws:iam::174765206872:role/gh-actions-terraform-apply` |
+| Secret | Example |
+|--------|---------|
+| `AWS_PLAN_ROLE_ARN` | `arn:aws:iam::<ACCOUNT_ID>:role/gh-actions-terraform-plan` |
+| `AWS_APPLY_ROLE_ARN` | `arn:aws:iam::<ACCOUNT_ID>:role/gh-actions-terraform-apply` |
 | `GH_MODULE_TOKEN` | PAT with Contents read on `High-level-VPC` |
 
-State buckets (must match `backend.tf` on **main**):
+Workflows derive the account ID and state bucket names from the role ARN automatically.
+Each job verifies OIDC credentials match the account embedded in the role ARN before `terraform init`.
 
-| Tier | Bucket |
-|------|--------|
-| Bootstrap seed (Tier 0) | `tf-bootstrap-state-174765206872-ap-south-1-an` |
-| Environment state (Tier 1) | `tf-state-174765206872-ap-south-1` (created by Bootstrap workflow) |
+State bucket naming (derived from `<ACCOUNT_ID>` + `ap-south-1`):
 
-> **Important:** GitHub `main` must include the `174765206872` backend names.
-> If Bootstrap still references `018701995398`, merge the latest branch and
-> re-run workflows.
+| Tier | Bucket pattern |
+|------|----------------|
+| Bootstrap seed (Tier 0) | `tf-bootstrap-state-<ACCOUNT_ID>-ap-south-1-an` |
+| Environment state (Tier 1) | `tf-state-<ACCOUNT_ID>-ap-south-1` (created by Bootstrap workflow) |
+
+**One-time per account (local):**
+
+```bash
+cp account.config.example account.config   # set ACCOUNT_ID
+./check-plan-role.sh                       # OIDC + IAM roles → copy ARNs to GitHub secrets
+aws s3 mb s3://tf-bootstrap-state-<ACCOUNT_ID>-ap-south-1-an --region ap-south-1
+scripts/terraform-init.sh bootstrap        # local init (optional)
+```
 
 ---
 

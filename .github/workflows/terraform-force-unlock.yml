@@ -27,7 +27,6 @@ permissions:
 env:
   TF_VERSION: "1.10.5"
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "174765206872"
 
 concurrency:
   group: force-unlock-${{ github.event.inputs.environment }}
@@ -66,7 +65,14 @@ jobs:
       - name: Verify AWS account
         uses: ./.github/actions/verify-aws-account
         with:
-          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          role_arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+
+      - name: Resolve AWS account
+        id: aws
+        uses: ./.github/actions/resolve-aws-account
+        with:
+          role_arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
 
       - name: Show current DynamoDB lock (if any)
         if: github.event.inputs.environment != 'bootstrap'
@@ -77,7 +83,7 @@ jobs:
             staging) STATE_KEY="staging/terraform.tfstate" ;;
             prod)    STATE_KEY="prod/terraform.tfstate" ;;
           esac
-          LOCK_ID="tf-state-174765206872-ap-south-1/${STATE_KEY}"
+          LOCK_ID="${{ steps.aws.outputs.state_bucket }}/${STATE_KEY}"
           echo "DynamoDB table: terraform-state-lock"
           echo "LockID key: ${LOCK_ID}"
           aws dynamodb get-item \
@@ -92,7 +98,13 @@ jobs:
           token: ${{ secrets.GH_MODULE_TOKEN }}
 
       - name: Terraform init
-        run: terraform init -input=false -reconfigure
+        uses: ./.github/actions/terraform-init
+        with:
+          role_arn: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          stack: ${{ github.event.inputs.environment }}
+          working_directory: ${{ github.event.inputs.environment == 'bootstrap' && 'bootstrap' || format('environments/{0}', github.event.inputs.environment) }}
+          reconfigure: "true"
 
       - name: Terraform force-unlock
         run: terraform force-unlock -force "${{ github.event.inputs.lock_id }}"

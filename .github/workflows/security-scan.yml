@@ -32,7 +32,6 @@ permissions:
 
 env:
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "174765206872"
 
 jobs:
   static-analysis:
@@ -116,16 +115,23 @@ jobs:
       - name: Verify AWS account
         uses: ./.github/actions/verify-aws-account
         with:
-          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
 
       - name: Fetch private VPC module
         uses: ./.github/actions/setup-private-modules
         with:
           token: ${{ secrets.GH_MODULE_TOKEN }}
 
+      - name: Terraform init
+        uses: ./.github/actions/terraform-init
+        with:
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
+          stack: ${{ matrix.environment }}
+          working_directory: environments/${{ matrix.environment }}
+
       - name: Terraform plan -> JSON
         run: |
-          terraform init -input=false
           terraform plan -input=false -out=tfplan
           terraform show -json tfplan > plan.json
 

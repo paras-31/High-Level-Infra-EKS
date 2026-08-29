@@ -38,7 +38,6 @@ env:
   TF_VERSION: "1.10.5"
   GO_VERSION: "1.22.x"
   AWS_REGION: "ap-south-1"
-  AWS_ACCOUNT_ID: "174765206872"
 
 concurrency:
   group: terratest-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.inputs.environment || 'matrix' }}
@@ -100,7 +99,15 @@ jobs:
         if: needs.get-environments.outputs.skip_live != 'true'
         uses: ./.github/actions/verify-aws-account
         with:
-          expected_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+
+      - name: Resolve AWS account
+        if: needs.get-environments.outputs.skip_live != 'true'
+        id: aws
+        uses: ./.github/actions/resolve-aws-account
+        with:
+          role_arn: ${{ secrets.AWS_PLAN_ROLE_ARN }}
+          aws_region: ${{ env.AWS_REGION }}
 
       - name: Configure Git for private Terraform modules
         uses: ./.github/actions/setup-private-modules
@@ -120,6 +127,7 @@ jobs:
         env:
           TEST_ENVIRONMENT: ${{ matrix.environment }}
           AWS_REGION: ${{ env.AWS_REGION }}
+          TEST_AWS_ACCOUNT_ID: ${{ steps.aws.outputs.account_id }}
           TERRATEST_SKIP_LIVE: ${{ needs.get-environments.outputs.skip_live }}
         run: go test ./... -v -timeout 30m -run TestTerraform
 

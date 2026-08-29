@@ -5,9 +5,8 @@ variable "aws_region" {
 }
 
 variable "state_bucket_name" {
-  description = "Globally-unique S3 bucket name for Terraform state."
+  description = "Globally-unique S3 bucket name for Terraform state. CI passes -var from the role ARN; locally set in terraform.tfvars."
   type        = string
-  default     = "tf-state-174765206872-ap-south-1"
 }
 
 variable "lock_table_name" {

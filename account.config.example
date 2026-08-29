@@ -1,0 +1,6 @@
+# Copy to account.config and set your values (account.config is gitignored).
+# Used by check-plan-role.sh and scripts/terraform-init.sh for local setup.
+
+ACCOUNT_ID="374320036370"
+AWS_REGION="ap-south-1"
+REPO="paras-31/High-Level-Infra-EKS"

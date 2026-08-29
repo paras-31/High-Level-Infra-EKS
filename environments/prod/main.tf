@@ -10,6 +10,11 @@ locals {
     CostCenter  = "platform"
   }
 
+  security_log_bucket_name = coalesce(
+    var.security_log_bucket_name,
+    "eks-security-logs-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
+  )
+
   # Grant cluster-admin to the platform admin role (if provided).
   access_entries = var.platform_admin_role_arn == null ? {} : {
     platform_admins = {
@@ -21,6 +26,8 @@ locals {
     }
   }
 }
+
+data "aws_caller_identity" "current" {}
 
 module "platform" {
   source = "../../modules/platform"
@@ -80,7 +87,7 @@ module "security_baseline" {
   source = "../../modules/security-baseline"
 
   name_prefix        = local.name_prefix
-  log_bucket_name    = var.security_log_bucket_name
+  log_bucket_name    = local.security_log_bucket_name
   logs_kms_key_arn   = module.platform.kms_key_arns["logs"]
   log_retention_days = 365
 

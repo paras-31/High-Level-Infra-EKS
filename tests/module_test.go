@@ -13,7 +13,7 @@ import (
 //   - TEST_ENVIRONMENT  — dev | staging | prod (required)
 //   - TERRATEST_SKIP_LIVE — set "true" to run terraform validate only (PR/push)
 //   - AWS_REGION          — default ap-south-1
-//   - TEST_AWS_ACCOUNT_ID — default 174765206872
+//   - TEST_AWS_ACCOUNT_ID — optional; CI sets this from AWS_PLAN_ROLE_ARN
 //
 // Unlike small module examples (e.g. secretsmanager), full EKS apply+destroy is
 // not run here — it takes 30–45 min and is handled by terraform-apply.yml.

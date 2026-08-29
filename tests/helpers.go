@@ -16,8 +16,7 @@ import (
 )
 
 const (
-	defaultRegion       = "ap-south-1"
-	defaultAWSAccountID = "174765206872"
+	defaultRegion = "ap-south-1"
 )
 
 var allEnvironments = []string{"dev", "staging", "prod"}
@@ -53,7 +52,7 @@ func expectedAWSAccountID() string {
 	if accountID := os.Getenv("TEST_AWS_ACCOUNT_ID"); accountID != "" {
 		return accountID
 	}
-	return defaultAWSAccountID
+	return ""
 }
 
 func skipLiveChecks() bool {
@@ -69,6 +68,11 @@ func verifyAWSAccount(t *testing.T, ctx context.Context, cfg aws.Config) {
 	actual := aws.ToString(identity.Account)
 	expected := expectedAWSAccountID()
 	t.Logf("AWS account=%s arn=%s", actual, aws.ToString(identity.Arn))
+
+	if expected == "" {
+		t.Log("TEST_AWS_ACCOUNT_ID not set — skipping account ID assertion")
+		return
+	}
 
 	require.Equal(t, expected, actual,
 		"wrong AWS account — login to %s before live tests (current: %s)",
